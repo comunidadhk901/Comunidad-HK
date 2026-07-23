@@ -106,7 +106,7 @@
   </div>
   <div style="max-width:1240px;margin:32px auto 0;padding-top:24px;border-top:1px solid #f1ede5;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px">
     <span style="font-size:13px;color:#9a958a">© 2026 HK Human Capital. Todos los derechos reservados.</span>
-    <a class="hk-link-hover" onclick="goTo('admin')" style="font-size:13px;color:#9a958a">Acceso administradores</a>
+    <a class="hk-link-hover" onclick="goTo('admin')" style="font-size:13px;color:#9a958a">Acceso Programa</a>
   </div>
 </footer>
 
@@ -635,8 +635,8 @@ function renderAdminLogin(){
   return `
   <section style="max-width:420px;margin:0 auto;padding:96px 24px;box-sizing:border-box">
     <span style="display:inline-block;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#1d6f9c;font-weight:600;margin-bottom:16px">Comunidad HK</span>
-    <h1 style="font-family:'Newsreader',serif;font-size:28px;color:#24262b;margin:0 0 12px;font-weight:500">Acceso administradores</h1>
-    <p style="color:#767b82;font-size:15px;line-height:1.6;margin:0 0 28px">Solo administradores registrados pueden entrar.</p>
+    <h1 style="font-family:'Newsreader',serif;font-size:28px;color:#24262b;margin:0 0 12px;font-weight:500">Acceso Programa</h1>
+    <p style="color:#767b82;font-size:15px;line-height:1.6;margin:0 0 28px">Ingresa tus credenciales para continuar.</p>
     <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Correo electrónico</label>
     <input class="hk-input" id="admin-email" type="email" placeholder="tu@hkchile.cl" style="${inputStyle}margin-bottom:16px" />
     <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Contraseña</label>
@@ -658,7 +658,13 @@ async function signInAdmin(){
   if (error){
     msg.style.display = 'block';
     msg.style.color = '#c0392b';
-    msg.textContent = 'Correo o contraseña incorrectos.';
+    if (error.message === 'Email not confirmed'){
+      msg.textContent = 'Esa cuenta existe pero no está confirmada. En Supabase, actívala con "Auto Confirm User" (Authentication → Users → editar usuario) o confírmala manualmente.';
+    } else if (error.message === 'Invalid login credentials'){
+      msg.textContent = 'Correo o contraseña incorrectos, o esa cuenta aún no existe en Supabase (Authentication → Users).';
+    } else {
+      msg.textContent = 'Error: ' + error.message;
+    }
     return;
   }
   goTo('admin');
