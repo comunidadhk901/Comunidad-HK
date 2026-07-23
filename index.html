@@ -55,7 +55,7 @@
   </div>
   <nav class="hk-nav-links">
     <a class="hk-link-hover" onclick="goHome()" style="font-size:15px;color:#3f4247;font-weight:500">Inicio</a>
-    <a class="hk-link-hover" style="font-size:15px;color:#3f4247;font-weight:500">Comunidad</a>
+    <a class="hk-link-hover" onclick="goTo('admin')" style="font-size:15px;color:#3f4247;font-weight:500">Comunidad</a>
     <a class="hk-link-hover" onclick="goLibrary()" style="font-size:15px;color:#3f4247;font-weight:500">Recursos</a>
     <a class="hk-link-hover" onclick="goTo('nosotros')" style="font-size:15px;color:#3f4247;font-weight:500">Nosotros</a>
     <a class="hk-link-hover" onclick="scrollToContact()" style="font-size:15px;color:#3f4247;font-weight:500">Contacto</a>
@@ -70,7 +70,7 @@
   </button>
   <div id="mobile-menu" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border-bottom:1px solid #ece7dd;flex-direction:column;padding:12px 24px 20px;gap:2px;z-index:30;box-shadow:0 12px 24px rgba(0,0,0,0.06)">
     <a class="hk-link-hover" onclick="goHome()" style="padding:14px 0;color:#3f4247;font-weight:500;border-bottom:1px solid #f1ede5">Inicio</a>
-    <a class="hk-link-hover" style="padding:14px 0;color:#3f4247;font-weight:500;border-bottom:1px solid #f1ede5">Comunidad</a>
+    <a class="hk-link-hover" onclick="goTo('admin')" style="padding:14px 0;color:#3f4247;font-weight:500;border-bottom:1px solid #f1ede5">Comunidad</a>
     <a class="hk-link-hover" onclick="goLibrary()" style="padding:14px 0;color:#3f4247;font-weight:500;border-bottom:1px solid #f1ede5">Recursos</a>
     <a class="hk-link-hover" onclick="goTo('nosotros')" style="padding:14px 0;color:#3f4247;font-weight:500;border-bottom:1px solid #f1ede5">Nosotros</a>
     <a class="hk-link-hover" onclick="scrollToContact()" style="padding:14px 0;color:#3f4247;font-weight:500">Contacto</a>
@@ -86,6 +86,7 @@
     <div style="flex:1 1 260px;min-width:220px">
       <img src="assets/hk-logo.png" alt="HK Human Capital" style="height:28px;width:auto;object-fit:contain;margin-bottom:16px" />
       <p style="font-size:14px;color:#767b82;line-height:1.6;margin:0 0 16px;max-width:280px">Executive search y gestión de talento en Chile.</p>
+      <a class="hk-link-hover" href="https://www.hkhumancapital.cl" target="_blank" rel="noopener" style="font-size:14px;display:block;margin-bottom:6px">hkhumancapital.cl ↗</a>
       <a class="hk-link-hover" style="font-size:14px">LinkedIn</a>
     </div>
     <div style="flex:1 1 200px;min-width:180px">
@@ -105,7 +106,7 @@
   </div>
   <div style="max-width:1240px;margin:32px auto 0;padding-top:24px;border-top:1px solid #f1ede5;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px">
     <span style="font-size:13px;color:#9a958a">© 2026 HK Human Capital. Todos los derechos reservados.</span>
-    <a class="hk-link-hover" style="font-size:13px;color:#9a958a">Acceso administradores</a>
+    <a class="hk-link-hover" onclick="goTo('admin')" style="font-size:13px;color:#9a958a">Acceso administradores</a>
   </div>
 </footer>
 
@@ -121,6 +122,18 @@
       <a class="hk-btn-primary" href="https://wa.me/56976672852?text=Hola%2C%20quisiera%20más%20información%20sobre%20el%20Programa%20de%20Outplacement%20HK." target="_blank" rel="noopener" style="text-decoration:none;text-align:center;background:#E17B2F;color:#fff;border:none;padding:14px;border-radius:4px;font-weight:600;font-size:15px">Escribir por WhatsApp</a>
       <a class="hk-btn-outline" href="mailto:contacto@hkchile.cl?subject=Consulta%20Programa%20de%20Outplacement%20HK" style="text-decoration:none;text-align:center;background:transparent;color:#24262b;border:1px solid #d8d2c6;padding:14px;border-radius:4px;font-weight:600;font-size:15px">Enviar un correo</a>
     </div>
+  </div>
+</div>
+
+<div id="add-admin-modal" style="display:none;position:fixed;inset:0;background:rgba(36,38,43,0.55);z-index:100;align-items:center;justify-content:center;padding:24px" onclick="if(event.target===this) closeAddAdminModal()">
+  <div style="background:#fff;border-radius:8px;max-width:420px;width:100%;padding:36px;position:relative;box-sizing:border-box">
+    <button onclick="closeAddAdminModal()" aria-label="Cerrar" style="position:absolute;top:16px;right:16px;background:none;border:none;font-size:20px;color:#9a958a;cursor:pointer;line-height:1;padding:4px">×</button>
+    <h2 style="font-family:'Newsreader',serif;font-size:22px;color:#24262b;margin:0 0 12px;font-weight:500">Agregar administrador</h2>
+    <p style="font-size:14px;line-height:1.6;color:#5b5f64;margin:0 0 20px">Esa persona podrá iniciar sesión con su correo (link mágico, sin contraseña) y ver todas las inscripciones.</p>
+    <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Correo electrónico</label>
+    <input class="hk-input" id="add-admin-email" type="email" placeholder="nombre@hkchile.cl" style="width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;margin-bottom:16px" />
+    <button class="hk-btn-primary" onclick="submitAddAdmin()" style="width:100%;background:#E17B2F;color:#fff;border:none;padding:14px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Agregar</button>
+    <p id="add-admin-msg" style="font-size:13px;margin:14px 0 0;display:none"></p>
   </div>
 </div>
 
@@ -618,13 +631,164 @@ function renderDetail(){
   </section>`;
 }
 
+function renderAdminLogin(){
+  return `
+  <section style="max-width:420px;margin:0 auto;padding:96px 24px;box-sizing:border-box">
+    <span style="display:inline-block;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#1d6f9c;font-weight:600;margin-bottom:16px">Comunidad HK</span>
+    <h1 style="font-family:'Newsreader',serif;font-size:28px;color:#24262b;margin:0 0 12px;font-weight:500">Acceso administradores</h1>
+    <p style="color:#767b82;font-size:15px;line-height:1.6;margin:0 0 28px">Ingresa tu correo y te enviaremos un enlace de acceso. No necesitas contraseña.</p>
+    <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Correo electrónico</label>
+    <input class="hk-input" id="admin-email" type="email" placeholder="tu@hkchile.cl" style="${inputStyle}margin-bottom:16px" />
+    <button id="admin-magiclink-btn" class="hk-btn-primary" onclick="sendAdminMagicLink()" style="width:100%;background:#E17B2F;color:#fff;border:none;padding:15px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Enviar enlace de acceso</button>
+    <p id="admin-login-msg" style="font-size:14px;margin:16px 0 0;line-height:1.5;display:none"></p>
+  </section>`;
+}
+
+async function sendAdminMagicLink(){
+  const email = document.getElementById('admin-email').value.trim();
+  const msg = document.getElementById('admin-login-msg');
+  if (!email) return;
+  const btn = document.getElementById('admin-magiclink-btn');
+  btn.disabled = true;
+  const { error } = await supabaseClient.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: window.location.origin + window.location.pathname }
+  });
+  btn.disabled = false;
+  msg.style.display = 'block';
+  if (error){
+    msg.style.color = '#c0392b';
+    msg.textContent = 'No pudimos enviar el enlace. Intenta de nuevo.';
+  } else {
+    msg.style.color = '#1d6f9c';
+    msg.textContent = 'Listo. Revisa tu correo (' + email + ') y haz clic en el enlace para ingresar.';
+  }
+}
+
+function renderAdminNoAccess(email){
+  return `
+  <section style="max-width:480px;margin:0 auto;padding:96px 24px;text-align:center;box-sizing:border-box">
+    <h1 style="font-family:'Newsreader',serif;font-size:26px;color:#24262b;margin:0 0 12px;font-weight:500">Sin acceso</h1>
+    <p style="color:#767b82;font-size:15px;line-height:1.6;margin:0 0 28px">La cuenta ${esc(email)} no tiene permisos de administrador. Pide a un administrador que te agregue desde el panel.</p>
+    <button class="hk-btn-outline" onclick="adminLogout()" style="background:transparent;color:#24262b;border:1px solid #d8d2c6;padding:13px 24px;border-radius:4px;font-weight:600;font-size:14px;cursor:pointer">Cerrar sesión</button>
+  </section>`;
+}
+
+async function adminLogout(){
+  await supabaseClient.auth.signOut();
+  goTo('admin');
+}
+
+function renderAdminDashboard(email, inscripciones, admins){
+  const rows = inscripciones.map(r => `
+    <tr style="border-bottom:1px solid #f1ede5">
+      <td style="padding:10px 12px;color:#3f4247;white-space:nowrap">${new Date(r.created_at).toLocaleDateString('es-CL')}</td>
+      <td style="padding:10px 12px;color:#24262b;font-weight:500;white-space:nowrap">${esc(r.nombre)} ${esc(r.apellido)}</td>
+      <td style="padding:10px 12px;color:#3f4247">${esc(r.email)}</td>
+      <td style="padding:10px 12px;color:#3f4247;white-space:nowrap">${esc(r.telefono)}</td>
+      <td style="padding:10px 12px;color:#3f4247">${esc(r.cargo)}</td>
+      <td style="padding:10px 12px;color:#3f4247">${esc(r.empresa)}</td>
+      <td style="padding:10px 12px;color:#3f4247">${esc((r.areas_interes||[]).join(', '))}</td>
+      <td style="padding:10px 12px;color:#3f4247">${r.cv_file_name ? esc(r.cv_file_name) : '—'}</td>
+    </tr>`).join('') || `<tr><td colspan="8" style="padding:32px;text-align:center;color:#767b82">Aún no hay inscritos.</td></tr>`;
+
+  return `
+  <section style="max-width:1240px;margin:0 auto;padding:48px 48px 8px;box-sizing:border-box;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px">
+    <div>
+      <h1 style="font-family:'Newsreader',serif;font-size:28px;color:#24262b;margin:0 0 6px;font-weight:500">Comunidad HK · Administración</h1>
+      <p style="color:#767b82;font-size:14px;margin:0">Conectado como ${esc(email)} · ${inscripciones.length} inscritos</p>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <button onclick="openAddAdminModal()" style="background:#fdf1e6;color:#b5601f;border:1px solid #f5d9b8;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer">+ Agregar administrador</button>
+      <button class="hk-btn-outline" onclick="adminLogout()" style="background:transparent;color:#24262b;border:1px solid #d8d2c6;padding:10px 18px;border-radius:4px;font-weight:600;font-size:13px;cursor:pointer">Cerrar sesión</button>
+    </div>
+  </section>
+
+  <section style="max-width:1240px;margin:0 auto;padding:24px 48px 12px;box-sizing:border-box">
+    <p style="font-size:13px;font-weight:600;color:#24262b;text-transform:uppercase;letter-spacing:0.04em;margin:0 0 10px">Administradores (${admins.length})</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+      ${admins.map(a => `<span style="background:#fff;border:1px solid #ece7dd;padding:6px 12px;border-radius:16px;font-size:13px;color:#3f4247">${esc(a.email)}</span>`).join('')}
+    </div>
+  </section>
+
+  <section style="max-width:1240px;margin:0 auto;padding:16px 48px 96px;box-sizing:border-box;overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:900px">
+      <thead>
+        <tr style="text-align:left;border-bottom:2px solid #ece7dd">
+          <th style="padding:10px 12px;color:#767b82;font-weight:600">Fecha</th>
+          <th style="padding:10px 12px;color:#767b82;font-weight:600">Nombre</th>
+          <th style="padding:10px 12px;color:#767b82;font-weight:600">Email</th>
+          <th style="padding:10px 12px;color:#767b82;font-weight:600">Teléfono</th>
+          <th style="padding:10px 12px;color:#767b82;font-weight:600">Cargo</th>
+          <th style="padding:10px 12px;color:#767b82;font-weight:600">Empresa</th>
+          <th style="padding:10px 12px;color:#767b82;font-weight:600">Áreas de interés</th>
+          <th style="padding:10px 12px;color:#767b82;font-weight:600">CV</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </section>`;
+}
+
+function openAddAdminModal(){
+  document.getElementById('add-admin-modal').style.display = 'flex';
+}
+function closeAddAdminModal(){
+  document.getElementById('add-admin-modal').style.display = 'none';
+  document.getElementById('add-admin-msg').style.display = 'none';
+  document.getElementById('add-admin-email').value = '';
+}
+async function submitAddAdmin(){
+  const email = document.getElementById('add-admin-email').value.trim();
+  const msg = document.getElementById('add-admin-msg');
+  if (!email) return;
+  const { error } = await supabaseClient.from('admin_emails').insert({ email });
+  msg.style.display = 'block';
+  if (error){
+    msg.style.color = '#c0392b';
+    msg.textContent = 'No se pudo agregar (¿ya existe, o tu cuenta no es administradora?).';
+    return;
+  }
+  msg.style.color = '#1d6f9c';
+  msg.textContent = 'Administrador agregado.';
+  setTimeout(() => { closeAddAdminModal(); goTo('admin'); }, 900);
+}
+
+async function renderAdminAsync(){
+  document.getElementById('main').innerHTML = '<section style="max-width:600px;margin:0 auto;padding:96px 24px;text-align:center"><p style="color:#767b82">Cargando...</p></section>';
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session){
+    document.getElementById('main').innerHTML = renderAdminLogin();
+    return;
+  }
+  const { data: isAdminData, error: isAdminErr } = await supabaseClient.rpc('is_admin');
+  if (isAdminErr || !isAdminData){
+    document.getElementById('main').innerHTML = renderAdminNoAccess(session.user.email);
+    return;
+  }
+  const [{ data: inscripciones }, { data: admins }] = await Promise.all([
+    supabaseClient.from('inscripciones').select('*').order('created_at', { ascending:false }),
+    supabaseClient.from('admin_emails').select('*').order('created_at', { ascending:true }),
+  ]);
+  document.getElementById('main').innerHTML = renderAdminDashboard(session.user.email, inscripciones||[], admins||[]);
+}
+
 function renderMain(){
+  if (state.page === 'admin'){ renderAdminAsync(); return; }
   const map = {
     landing: renderLanding, form1: renderForm1, form2: renderForm2,
     confirmation: renderConfirmation, library: renderLibrary, detail: renderDetail,
     nosotros: renderNosotros,
   };
   document.getElementById('main').innerHTML = map[state.page]();
+}
+
+supabaseClient.auth.onAuthStateChange((_event, _session) => {
+  if (state.page === 'admin') renderAdminAsync();
+});
+
+if (window.location.hash.includes('access_token') || window.location.search.includes('code=')){
+  state.page = 'admin';
 }
 
 renderMain();
