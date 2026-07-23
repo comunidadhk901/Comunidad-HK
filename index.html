@@ -636,33 +636,32 @@ function renderAdminLogin(){
   <section style="max-width:420px;margin:0 auto;padding:96px 24px;box-sizing:border-box">
     <span style="display:inline-block;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#1d6f9c;font-weight:600;margin-bottom:16px">Comunidad HK</span>
     <h1 style="font-family:'Newsreader',serif;font-size:28px;color:#24262b;margin:0 0 12px;font-weight:500">Acceso administradores</h1>
-    <p style="color:#767b82;font-size:15px;line-height:1.6;margin:0 0 28px">Ingresa tu correo y te enviaremos un enlace de acceso. No necesitas contraseña.</p>
+    <p style="color:#767b82;font-size:15px;line-height:1.6;margin:0 0 28px">Solo administradores registrados pueden entrar.</p>
     <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Correo electrónico</label>
     <input class="hk-input" id="admin-email" type="email" placeholder="tu@hkchile.cl" style="${inputStyle}margin-bottom:16px" />
-    <button id="admin-magiclink-btn" class="hk-btn-primary" onclick="sendAdminMagicLink()" style="width:100%;background:#E17B2F;color:#fff;border:none;padding:15px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Enviar enlace de acceso</button>
+    <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Contraseña</label>
+    <input class="hk-input" id="admin-password" type="password" placeholder="••••••••" style="${inputStyle}margin-bottom:16px" />
+    <button id="admin-login-btn" class="hk-btn-primary" onclick="signInAdmin()" style="width:100%;background:#E17B2F;color:#fff;border:none;padding:15px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Iniciar sesión</button>
     <p id="admin-login-msg" style="font-size:14px;margin:16px 0 0;line-height:1.5;display:none"></p>
   </section>`;
 }
 
-async function sendAdminMagicLink(){
+async function signInAdmin(){
   const email = document.getElementById('admin-email').value.trim();
+  const password = document.getElementById('admin-password').value;
   const msg = document.getElementById('admin-login-msg');
-  if (!email) return;
-  const btn = document.getElementById('admin-magiclink-btn');
+  if (!email || !password) return;
+  const btn = document.getElementById('admin-login-btn');
   btn.disabled = true;
-  const { error } = await supabaseClient.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: window.location.origin + window.location.pathname }
-  });
+  const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
   btn.disabled = false;
-  msg.style.display = 'block';
   if (error){
+    msg.style.display = 'block';
     msg.style.color = '#c0392b';
-    msg.textContent = 'No pudimos enviar el enlace. Intenta de nuevo.';
-  } else {
-    msg.style.color = '#1d6f9c';
-    msg.textContent = 'Listo. Revisa tu correo (' + email + ') y haz clic en el enlace para ingresar.';
+    msg.textContent = 'Correo o contraseña incorrectos.';
+    return;
   }
+  goTo('admin');
 }
 
 function renderAdminNoAccess(email){
@@ -786,10 +785,6 @@ function renderMain(){
 supabaseClient.auth.onAuthStateChange((_event, _session) => {
   if (state.page === 'admin') renderAdminAsync();
 });
-
-if (window.location.hash.includes('access_token') || window.location.search.includes('code=')){
-  state.page = 'admin';
-}
 
 renderMain();
 </script>
