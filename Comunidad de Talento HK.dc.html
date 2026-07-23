@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,500;0,600;1,400&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="./image-slot.js"></script>
+<style>
+  body{margin:0;background:linear-gradient(180deg,#fdece0 0%,#faf8f4 460px);font-family:'Public Sans',sans-serif;}
+  a{color:#1d6f9c;}
+  a:hover{color:#155579;}
+  .hk-nav-links{display:flex;align-items:center;gap:36px;}
+  .hk-hamburger{display:none;}
+  @media (max-width:880px){
+    .hk-nav-links{display:none;}
+    .hk-cta-desktop{display:none;}
+    .hk-hamburger{display:flex;}
+  }
+</style>
+</helmet>
+<div style="min-height:100vh;background:linear-gradient(180deg,#fdece0 0%,#faf8f4 460px);display:flex;flex-direction:column">
+
+<header style="display:flex;align-items:center;justify-content:space-between;padding:18px 48px;background:#ffffff;border-bottom:1px solid #ece7dd;position:relative;z-index:20;flex-wrap:wrap;gap:16px">
+  <div style="display:flex;align-items:center;gap:12px;cursor:pointer" onClick="{{ goHome }}">
+    <img src="assets/hk-logo.png" alt="HK Human Capital" style="height:32px;width:auto;object-fit:contain" />
+  </div>
+  <nav class="hk-nav-links">
+    <a onClick="{{ goHome }}" style="font-size:15px;color:#3f4247;text-decoration:none;cursor:pointer;font-weight:500" style-hover="color:#E17B2F">Inicio</a>
+    <a style="font-size:15px;color:#3f4247;text-decoration:none;cursor:pointer;font-weight:500" style-hover="color:#E17B2F">Comunidad</a>
+    <a onClick="{{ goLibrary }}" style="font-size:15px;color:#3f4247;text-decoration:none;cursor:pointer;font-weight:500" style-hover="color:#E17B2F">Recursos</a>
+    <a style="font-size:15px;color:#3f4247;text-decoration:none;cursor:pointer;font-weight:500" style-hover="color:#E17B2F">Nosotros</a>
+  </nav>
+  <div class="hk-cta-desktop">
+    <button onClick="{{ goForm1 }}" style="background:#E17B2F;color:#fff;border:none;padding:12px 24px;border-radius:4px;font-family:'Public Sans',sans-serif;font-weight:600;font-size:14px;cursor:pointer" style-hover="background:#C86420;transform:scale(1.03)">Únete a la comunidad</button>
+  </div>
+  <button class="hk-hamburger" onClick="{{ toggleMobileMenu }}" style="width:40px;height:40px;border:1px solid #ece7dd;background:#fff;border-radius:4px;align-items:center;justify-content:center;cursor:pointer;flex-direction:column;gap:4px">
+    <span style="width:18px;height:2px;background:#24262b"></span>
+    <span style="width:18px;height:2px;background:#24262b"></span>
+    <span style="width:18px;height:2px;background:#24262b"></span>
+  </button>
+  <sc-if value="{{ mobileMenuOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;top:100%;left:0;right:0;background:#fff;border-bottom:1px solid #ece7dd;display:flex;flex-direction:column;padding:12px 24px 20px;gap:2px;z-index:30;box-shadow:0 12px 24px rgba(0,0,0,0.06)">
+      <a onClick="{{ goHome }}" style="padding:14px 0;color:#3f4247;text-decoration:none;font-weight:500;border-bottom:1px solid #f1ede5" style-hover="color:#E17B2F">Inicio</a>
+      <a style="padding:14px 0;color:#3f4247;text-decoration:none;font-weight:500;border-bottom:1px solid #f1ede5" style-hover="color:#E17B2F">Comunidad</a>
+      <a onClick="{{ goLibrary }}" style="padding:14px 0;color:#3f4247;text-decoration:none;font-weight:500;border-bottom:1px solid #f1ede5" style-hover="color:#E17B2F">Recursos</a>
+      <a style="padding:14px 0;color:#3f4247;text-decoration:none;font-weight:500" style-hover="color:#E17B2F">Nosotros</a>
+      <button onClick="{{ goForm1 }}" style="margin-top:12px;background:#E17B2F;color:#fff;border:none;padding:14px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Únete a la comunidad</button>
+    </div>
+  </sc-if>
+</header>
+<div style="height:4px;background:linear-gradient(90deg,#E17B2F 0%,#f5a35c 50%,#1d6f9c 100%)"></div>
+
+<sc-if value="{{ isLanding }}" hint-placeholder-val="{{ true }}">
+  <main>
+    <div style="background:linear-gradient(135deg,#fdece0 0%,#faf8f4 60%)">
+    <section style="display:flex;flex-wrap:wrap;align-items:center;gap:56px;padding:88px 48px 72px;max-width:1240px;margin:0 auto;box-sizing:border-box">
+      <div style="flex:1 1 460px;min-width:300px">
+        <span style="display:inline-block;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#1d6f9c;font-weight:600;margin-bottom:20px">Comunidad de Talento HK</span>
+        <h1 style="font-family:'Newsreader',serif;font-size:clamp(32px,4.2vw,52px);line-height:1.14;color:#24262b;margin:0 0 24px;font-weight:500">Impulsa tu carrera junto a HK Human Capital</h1>
+        <p style="font-size:18px;line-height:1.65;color:#5b5f64;margin:0 0 36px;max-width:520px">Forma parte de nuestra comunidad de talento, mantén actualizado tu perfil profesional y accede a contenidos que te ayudarán a enfrentar nuevos desafíos laborales.</p>
+        <div style="display:flex;gap:16px;flex-wrap:wrap">
+          <button onClick="{{ goForm1 }}" style="background:#E17B2F;color:#fff;border:none;padding:16px 30px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer" style-hover="background:#C86420;transform:scale(1.03)">Unirme a la comunidad</button>
+          <button onClick="{{ goLibrary }}" style="background:transparent;color:#24262b;border:1px solid #d8d2c6;padding:16px 30px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer" style-hover="border-color:#b9b2a2">Explorar recursos</button>
+        </div>
+      </div>
+      <div style="flex:1 1 420px;min-width:300px">
+        <image-slot id="hero-image" shape="rounded" radius="8" placeholder="Imagen: liderazgo y desarrollo de talento ejecutivo" style="width:100%;height:420px"></image-slot>
+      </div>
+    </section>
+    </div>
+
+    <section style="padding:24px 48px 96px;max-width:1240px;margin:0 auto;box-sizing:border-box">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:24px">
+        <div style="background:#fff;border:1px solid #ece7dd;border-radius:6px;padding:32px 28px;transition:all 0.2s ease" style-hover="transform:translateY(-4px);box-shadow:0 14px 28px rgba(225,123,47,0.14);border-color:#f0c9a4">
+          <div style="width:36px;height:2px;background:#E17B2F;margin-bottom:20px"></div>
+          <p style="font-size:16px;line-height:1.5;color:#24262b;font-weight:500;margin:0">Mantén actualizado tu perfil profesional</p>
+        </div>
+        <div style="background:#fff;border:1px solid #ece7dd;border-radius:6px;padding:32px 28px;transition:all 0.2s ease" style-hover="transform:translateY(-4px);box-shadow:0 14px 28px rgba(225,123,47,0.14);border-color:#f0c9a4">
+          <div style="width:36px;height:2px;background:#E17B2F;margin-bottom:20px"></div>
+          <p style="font-size:16px;line-height:1.5;color:#24262b;font-weight:500;margin:0">Accede a contenidos exclusivos de empleabilidad</p>
+        </div>
+        <div style="background:#fff;border:1px solid #ece7dd;border-radius:6px;padding:32px 28px;transition:all 0.2s ease" style-hover="transform:translateY(-4px);box-shadow:0 14px 28px rgba(225,123,47,0.14);border-color:#f0c9a4">
+          <div style="width:36px;height:2px;background:#E17B2F;margin-bottom:20px"></div>
+          <p style="font-size:16px;line-height:1.5;color:#24262b;font-weight:500;margin:0">Conecta con futuras oportunidades profesionales</p>
+        </div>
+        <div style="background:#fff;border:1px solid #ece7dd;border-radius:6px;padding:32px 28px;transition:all 0.2s ease" style-hover="transform:translateY(-4px);box-shadow:0 14px 28px rgba(225,123,47,0.14);border-color:#f0c9a4">
+          <div style="width:36px;height:2px;background:#E17B2F;margin-bottom:20px"></div>
+          <p style="font-size:16px;line-height:1.5;color:#24262b;font-weight:500;margin:0">Recibe herramientas para desarrollar tu carrera</p>
+        </div>
+      </div>
+    </section>
+
+    <section style="background:linear-gradient(180deg,#ffffff 0%,#f3f8fb 100%);padding:88px 48px;border-top:1px solid #ece7dd;border-bottom:1px solid #ece7dd">
+      <div style="max-width:1240px;margin:0 auto">
+        <h2 style="font-family:'Newsreader',serif;font-size:30px;color:#24262b;margin:0 0 48px;font-weight:500;text-align:center">Cómo funciona</h2>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:40px">
+          <div style="text-align:center">
+            <div style="width:52px;height:52px;border-radius:50%;background:#faf1e7;color:#E17B2F;display:flex;align-items:center;justify-content:center;font-family:'Newsreader',serif;font-size:20px;margin:0 auto 20px">1</div>
+            <p style="font-weight:600;font-size:16px;color:#24262b;margin:0 0 8px">Completa tus datos</p>
+            <p style="font-size:14px;color:#767b82;margin:0 auto;max-width:260px;line-height:1.5">Regístrate con tu información profesional en un formulario breve.</p>
+          </div>
+          <div style="text-align:center">
+            <div style="width:52px;height:52px;border-radius:50%;background:#faf1e7;color:#E17B2F;display:flex;align-items:center;justify-content:center;font-family:'Newsreader',serif;font-size:20px;margin:0 auto 20px">2</div>
+            <p style="font-weight:600;font-size:16px;color:#24262b;margin:0 0 8px">Carga tu CV de manera opcional</p>
+            <p style="font-size:14px;color:#767b82;margin:0 auto;max-width:260px;line-height:1.5">Puedes subir tu currículum en PDF o completar el proceso sin él.</p>
+          </div>
+          <div style="text-align:center">
+            <div style="width:52px;height:52px;border-radius:50%;background:#faf1e7;color:#E17B2F;display:flex;align-items:center;justify-content:center;font-family:'Newsreader',serif;font-size:20px;margin:0 auto 20px">3</div>
+            <p style="font-weight:600;font-size:16px;color:#24262b;margin:0 0 8px">Accede a contenidos y mantente conectado</p>
+            <p style="font-size:14px;color:#767b82;margin:0 auto;max-width:260px;line-height:1.5">Recibe materiales y novedades para seguir impulsando tu desarrollo.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section style="padding:88px 48px;max-width:1240px;margin:0 auto;box-sizing:border-box">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:16px;margin-bottom:40px">
+        <h2 style="font-family:'Newsreader',serif;font-size:30px;color:#24262b;margin:0;font-weight:500">Recursos destacados</h2>
+        <a onClick="{{ goLibrary }}" style="font-size:14px;font-weight:600;text-decoration:none;cursor:pointer">Ver toda la biblioteca →</a>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px">
+        <sc-for list="{{ featuredResources }}" as="item" hint-placeholder-count="6">
+          <div style="background:#fff;border:1px solid #ece7dd;border-radius:6px;padding:28px;display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;gap:8px;align-items:center">
+              <span style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#1d6f9c;font-weight:600">{{ item.category }}</span>
+              <span style="width:3px;height:3px;border-radius:50%;background:#c7c1b4"></span>
+              <span style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9a958a;font-weight:600">{{ item.type }}</span>
+            </div>
+            <p style="font-family:'Newsreader',serif;font-size:19px;color:#24262b;margin:0;font-weight:500;line-height:1.3">{{ item.title }}</p>
+            <p style="font-size:14px;color:#767b82;margin:0;line-height:1.55;flex:1">{{ item.desc }}</p>
+            <button onClick="{{ item.open }}" style="align-self:flex-start;background:none;border:none;color:#E17B2F;font-weight:600;font-size:14px;cursor:pointer;padding:0;margin-top:4px">Ver contenido →</button>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section style="background:#24262b;padding:80px 48px">
+      <div style="max-width:900px;margin:0 auto;text-align:center">
+        <h2 style="font-family:'Newsreader',serif;color:#fff;font-size:28px;margin:0 0 16px;font-weight:500">Confianza y confidencialidad, ante todo</h2>
+        <p style="color:#c7cbd1;font-size:16px;margin:0 0 48px;line-height:1.6">Tu información se maneja con el mismo estándar de discreción que aplicamos a nuestros procesos de executive search.</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:28px;text-align:left">
+          <div style="display:flex;gap:14px">
+            <span style="width:6px;height:6px;border-radius:50%;background:#E17B2F;margin-top:8px;flex-shrink:0"></span>
+            <p style="color:#e4e6e9;font-size:15px;line-height:1.6;margin:0">Tus datos serán tratados de forma confidencial.</p>
+          </div>
+          <div style="display:flex;gap:14px">
+            <span style="width:6px;height:6px;border-radius:50%;background:#E17B2F;margin-top:8px;flex-shrink:0"></span>
+            <p style="color:#e4e6e9;font-size:15px;line-height:1.6;margin:0">Tu información no será visible para otros candidatos.</p>
+          </div>
+          <div style="display:flex;gap:14px">
+            <span style="width:6px;height:6px;border-radius:50%;background:#E17B2F;margin-top:8px;flex-shrink:0"></span>
+            <p style="color:#e4e6e9;font-size:15px;line-height:1.6;margin:0">Solo el equipo autorizado de HK Human Capital podrá acceder a ella.</p>
+          </div>
+          <div style="display:flex;gap:14px">
+            <span style="width:6px;height:6px;border-radius:50%;background:#E17B2F;margin-top:8px;flex-shrink:0"></span>
+            <p style="color:#e4e6e9;font-size:15px;line-height:1.6;margin:0">Puedes solicitar la actualización o eliminación de tus datos cuando quieras.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</sc-if>
+
+<sc-if value="{{ isForm1 }}" hint-placeholder-val="{{ false }}">
+  <main style="flex:1">
+    <section style="max-width:680px;margin:0 auto;padding:64px 24px 96px;box-sizing:border-box">
+      <div style="display:flex;gap:8px;margin-bottom:32px">
+        <div style="flex:1;height:3px;background:linear-gradient(90deg,#E17B2F,#1d6f9c);border-radius:2px"></div>
+        <div style="flex:1;height:3px;background:#ece7dd;border-radius:2px"></div>
+      </div>
+      <span style="font-size:13px;letter-spacing:0.06em;text-transform:uppercase;color:#1d6f9c;font-weight:600">Paso 1 de 2</span>
+      <h1 style="font-family:'Newsreader',serif;font-size:30px;margin:10px 0 12px;color:#24262b;font-weight:500">Información personal</h1>
+      <p style="color:#767b82;margin:0 0 40px;font-size:15px;line-height:1.6">Cuéntanos un poco sobre ti para comenzar tu perfil en la Comunidad de Talento HK.</p>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px">
+        <div>
+          <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Nombre *</label>
+          <input value="{{ form.nombre }}" onChange="{{ updateNombre }}" type="text" placeholder="Tu nombre" style="width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;font-family:'Public Sans',sans-serif" style-focus="border-color:#E17B2F;outline:none" />
+        </div>
+        <div>
+          <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Apellido *</label>
+          <input value="{{ form.apellido }}" onChange="{{ updateApellido }}" type="text" placeholder="Tu apellido" style="width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;font-family:'Public Sans',sans-serif" style-focus="border-color:#E17B2F;outline:none" />
+        </div>
+        <div>
+          <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Correo electrónico *</label>
+          <input value="{{ form.email }}" onChange="{{ updateEmail }}" type="email" placeholder="nombre@empresa.cl" style="width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;font-family:'Public Sans',sans-serif" style-focus="border-color:#E17B2F;outline:none" />
+        </div>
+        <div>
+          <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Teléfono *</label>
+          <input value="{{ form.telefono }}" onChange="{{ updateTelefono }}" type="tel" placeholder="+56 9 1234 5678" style="width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;font-family:'Public Sans',sans-serif" style-focus="border-color:#E17B2F;outline:none" />
+        </div>
+        <div>
+          <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Cargo actual *</label>
+          <input value="{{ form.cargo }}" onChange="{{ updateCargo }}" type="text" placeholder="Ej: Gerente de Operaciones" style="width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;font-family:'Public Sans',sans-serif" style-focus="border-color:#E17B2F;outline:none" />
+        </div>
+        <div>
+          <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Empresa actual *</label>
+          <input value="{{ form.empresa }}" onChange="{{ updateEmpresa }}" type="text" placeholder="Nombre de tu empresa" style="width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;font-family:'Public Sans',sans-serif" style-focus="border-color:#E17B2F;outline:none" />
+        </div>
+        <div>
+          <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">LinkedIn</label>
+          <input value="{{ form.linkedin }}" onChange="{{ updateLinkedin }}" type="text" placeholder="linkedin.com/in/tu-perfil" style="width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;font-family:'Public Sans',sans-serif" style-focus="border-color:#E17B2F;outline:none" />
+        </div>
+        <div>
+          <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Ciudad o país</label>
+          <input value="{{ form.ciudad }}" onChange="{{ updateCiudad }}" type="text" placeholder="Ej: Santiago, Chile" style="width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;font-family:'Public Sans',sans-serif" style-focus="border-color:#E17B2F;outline:none" />
+        </div>
+        <div>
+          <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Área profesional</label>
+          <input value="{{ form.areaProfesional }}" onChange="{{ updateAreaProfesional }}" type="text" placeholder="Ej: Finanzas, Operaciones" style="width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;font-family:'Public Sans',sans-serif" style-focus="border-color:#E17B2F;outline:none" />
+        </div>
+        <div>
+          <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Años de experiencia</label>
+          <input value="{{ form.anios }}" onChange="{{ updateAnios }}" type="text" placeholder="Ej: 12" style="width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;font-family:'Public Sans',sans-serif" style-focus="border-color:#E17B2F;outline:none" />
+        </div>
+      </div>
+
+      <button onClick="{{ goToStep2 }}" style="width:100%;margin-top:36px;background:#E17B2F;color:#fff;border:none;padding:16px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer" style-hover="background:#C86420;transform:scale(1.03)">Continuar</button>
+    </section>
+  </main>
+</sc-if>
+
+<sc-if value="{{ isForm2 }}" hint-placeholder-val="{{ false }}">
+  <main style="flex:1">
+    <section style="max-width:680px;margin:0 auto;padding:64px 24px 96px;box-sizing:border-box">
+      <div style="display:flex;gap:8px;margin-bottom:32px">
+        <div style="flex:1;height:3px;background:linear-gradient(90deg,#E17B2F,#1d6f9c);border-radius:2px"></div>
+        <div style="flex:1;height:3px;background:linear-gradient(90deg,#E17B2F,#1d6f9c);border-radius:2px"></div>
+      </div>
+      <span style="font-size:13px;letter-spacing:0.06em;text-transform:uppercase;color:#1d6f9c;font-weight:600">Paso 2 de 2</span>
+      <h1 style="font-family:'Newsreader',serif;font-size:30px;margin:10px 0 12px;color:#24262b;font-weight:500">Perfil profesional</h1>
+      <p style="color:#767b82;margin:0 0 36px;font-size:15px;line-height:1.6">Estos datos nos ayudan a compartir contigo contenidos más relevantes.</p>
+
+      <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Carga tu CV (opcional, PDF)</label>
+      <label style="border:1.5px dashed #d8d2c6;border-radius:6px;padding:32px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;text-align:center;background:#fff">
+        <input type="file" accept="application/pdf" onChange="{{ handleCvChange }}" style="display:none" />
+        <sc-if value="{{ hasCvFile }}" hint-placeholder-val="{{ false }}">
+          <span style="font-weight:600;color:#24262b;font-size:15px">{{ form.cvFileName }} ✓</span>
+          <span style="font-size:13px;color:#767b82">Haz clic para reemplazar el archivo</span>
+        </sc-if>
+        <sc-if value="{{ noCvFile }}" hint-placeholder-val="{{ true }}">
+          <span style="font-weight:600;color:#24262b;font-size:15px">Arrastra tu CV aquí o haz clic para seleccionar</span>
+          <span style="font-size:13px;color:#767b82">Formato PDF · Este paso es opcional</span>
+        </sc-if>
+      </label>
+
+      <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin:32px 0 12px">Áreas de interés</label>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:36px">
+        <sc-for list="{{ areaChips }}" as="item" hint-placeholder-count="7">
+          <sc-if value="{{ item.selected }}" hint-placeholder-val="{{ false }}">
+            <button onClick="{{ item.toggle }}" style="background:#E17B2F;color:#fff;border:1px solid #E17B2F;padding:10px 18px;border-radius:20px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Public Sans',sans-serif">{{ item.name }}</button>
+          </sc-if>
+          <sc-if value="{{ item.notSelected }}" hint-placeholder-val="{{ true }}">
+            <button onClick="{{ item.toggle }}" style="background:#fff;color:#3f4247;border:1px solid #d8d2c6;padding:10px 18px;border-radius:20px;font-size:14px;font-weight:500;cursor:pointer;font-family:'Public Sans',sans-serif">{{ item.name }}</button>
+          </sc-if>
+        </sc-for>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:18px;padding:24px;background:#fff;border:1px solid #ece7dd;border-radius:6px">
+        <label style="display:flex;align-items:flex-start;gap:12px;cursor:pointer">
+          <input type="checkbox" checked="{{ form.aceptaPrivacidad }}" onChange="{{ updateAceptaPrivacidad }}" style="margin-top:3px;width:18px;height:18px;accent-color:#E17B2F;flex-shrink:0" />
+          <span style="font-size:14px;color:#3f4247;line-height:1.55">He leído y acepto la política de privacidad de HK Human Capital. *</span>
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:12px;cursor:pointer">
+          <input type="checkbox" checked="{{ form.aceptaComunicaciones }}" onChange="{{ updateAceptaComunicaciones }}" style="margin-top:3px;width:18px;height:18px;accent-color:#E17B2F;flex-shrink:0" />
+          <span style="font-size:14px;color:#3f4247;line-height:1.55">Quiero recibir contenidos y comunicaciones de HK Human Capital.</span>
+        </label>
+      </div>
+
+      <sc-if value="{{ hasFormError }}" hint-placeholder-val="{{ false }}">
+        <p style="color:#c0392b;font-size:14px;margin:16px 0 0">{{ formError }}</p>
+      </sc-if>
+
+      <div style="display:flex;gap:16px;margin-top:32px">
+        <button onClick="{{ goToStep1 }}" style="flex:1;background:transparent;color:#24262b;border:1px solid #d8d2c6;padding:16px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Volver</button>
+        <button onClick="{{ submitForm }}" style="flex:2;background:#E17B2F;color:#fff;border:none;padding:16px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer" style-hover="background:#C86420;transform:scale(1.03)">Unirme a la Comunidad HK</button>
+      </div>
+    </section>
+  </main>
+</sc-if>
+
+<sc-if value="{{ isConfirmation }}" hint-placeholder-val="{{ false }}">
+  <main style="flex:1;display:flex;align-items:center">
+    <section style="max-width:560px;margin:0 auto;padding:96px 24px;text-align:center;box-sizing:border-box">
+      <div style="width:64px;height:64px;border-radius:50%;background:#E17B2F;display:flex;align-items:center;justify-content:center;margin:0 auto 32px">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M4 12.5L9.5 18L20 6" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <h1 style="font-family:'Newsreader',serif;font-size:28px;color:#24262b;margin:0 0 16px;font-weight:500">¡Bienvenido a la Comunidad de Talento HK!</h1>
+      <p style="color:#5b5f64;font-size:16px;line-height:1.65;margin:0 0 40px">Hemos recibido tu información correctamente. Desde ahora podrás acceder a contenidos y novedades para seguir impulsando tu desarrollo profesional.</p>
+      <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">
+        <button onClick="{{ goLibrary }}" style="background:#E17B2F;color:#fff;border:none;padding:15px 28px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Explorar recursos</button>
+        <button onClick="{{ goHome }}" style="background:transparent;color:#24262b;border:1px solid #d8d2c6;padding:15px 28px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Volver al inicio</button>
+      </div>
+    </section>
+  </main>
+</sc-if>
+
+<sc-if value="{{ isLibrary }}" hint-placeholder-val="{{ false }}">
+  <main style="flex:1">
+    <section style="max-width:1240px;margin:0 auto;padding:56px 48px 8px;box-sizing:border-box">
+      <h1 style="font-family:'Newsreader',serif;font-size:32px;color:#24262b;margin:0 0 12px;font-weight:500">Biblioteca de recursos</h1>
+      <p style="color:#767b82;font-size:16px;margin:0 0 36px;max-width:640px;line-height:1.6">Artículos, videos, guías y plantillas para acompañarte en cada etapa de tu desarrollo profesional.</p>
+      <input value="{{ search }}" onChange="{{ setSearch }}" type="text" placeholder="Buscar por título o tema..." style="width:100%;box-sizing:border-box;padding:15px 18px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;font-family:'Public Sans',sans-serif;margin-bottom:24px" style-focus="border-color:#E17B2F;outline:none" />
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:40px">
+        <sc-for list="{{ categoryFilters }}" as="item" hint-placeholder-count="8">
+          <sc-if value="{{ item.selected }}" hint-placeholder-val="{{ false }}">
+            <button onClick="{{ item.select }}" style="background:#24262b;color:#fff;border:1px solid #24262b;padding:9px 16px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Public Sans',sans-serif">{{ item.name }}</button>
+          </sc-if>
+          <sc-if value="{{ item.notSelected }}" hint-placeholder-val="{{ true }}">
+            <button onClick="{{ item.select }}" style="background:#fff;color:#3f4247;border:1px solid #d8d2c6;padding:9px 16px;border-radius:20px;font-size:13px;font-weight:500;cursor:pointer;font-family:'Public Sans',sans-serif">{{ item.name }}</button>
+          </sc-if>
+        </sc-for>
+      </div>
+    </section>
+    <section style="max-width:1240px;margin:0 auto;padding:0 48px 96px;box-sizing:border-box">
+      <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
+        <p style="color:#767b82;font-size:15px;padding:40px 0;text-align:center">No encontramos recursos que coincidan con tu búsqueda.</p>
+      </sc-if>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px">
+        <sc-for list="{{ filteredResources }}" as="item" hint-placeholder-count="9">
+          <div style="background:#fff;border:1px solid #ece7dd;border-radius:6px;padding:28px;display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;gap:8px;align-items:center">
+              <span style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#1d6f9c;font-weight:600">{{ item.category }}</span>
+              <span style="width:3px;height:3px;border-radius:50%;background:#c7c1b4"></span>
+              <span style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9a958a;font-weight:600">{{ item.type }}</span>
+            </div>
+            <p style="font-family:'Newsreader',serif;font-size:19px;color:#24262b;margin:0;font-weight:500;line-height:1.3">{{ item.title }}</p>
+            <p style="font-size:14px;color:#767b82;margin:0;line-height:1.55;flex:1">{{ item.desc }}</p>
+            <button onClick="{{ item.open }}" style="align-self:flex-start;background:none;border:none;color:#E17B2F;font-weight:600;font-size:14px;cursor:pointer;padding:0;margin-top:4px">Ver contenido →</button>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+  </main>
+</sc-if>
+
+<sc-if value="{{ isDetail }}" hint-placeholder-val="{{ false }}">
+  <main style="flex:1">
+    <section style="max-width:760px;margin:0 auto;padding:48px 24px 24px;box-sizing:border-box">
+      <a onClick="{{ goLibrary }}" style="font-size:13px;font-weight:600;text-decoration:none;cursor:pointer">← Biblioteca de recursos</a>
+      <div style="display:flex;gap:8px;align-items:center;margin:24px 0 16px;flex-wrap:wrap">
+        <span style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#1d6f9c;font-weight:700;background:#eaf3f8;padding:4px 10px;border-radius:12px">{{ selectedResource.category }}</span>
+        <span style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#b5601f;font-weight:700;background:#fdf1e6;padding:4px 10px;border-radius:12px">{{ selectedResource.type }}</span>
+      </div>
+      <h1 style="font-family:'Newsreader',serif;font-size:34px;color:#24262b;margin:0 0 28px;font-weight:500;line-height:1.2">{{ selectedResource.title }}</h1>
+      <image-slot id="{{ selectedResource.coverSlotId }}" shape="rounded" radius="8" placeholder="Imagen de portada del recurso" style="width:100%;height:340px;margin-bottom:36px"></image-slot>
+      <p style="font-size:17px;line-height:1.75;color:#3f4247;margin:0 0 20px">{{ selectedResource.bodyOne }}</p>
+      <p style="font-size:17px;line-height:1.75;color:#3f4247;margin:0 0 32px">{{ selectedResource.bodyTwo }}</p>
+      <sc-if value="{{ selectedResource.downloadable }}" hint-placeholder-val="{{ false }}">
+        <button style="background:#24262b;color:#fff;border:none;padding:15px 26px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer;margin-bottom:16px">Descargar {{ selectedResource.type }}</button>
+      </sc-if>
+    </section>
+    <section style="max-width:760px;margin:0 auto;padding:32px 24px 96px;border-top:1px solid #ece7dd;box-sizing:border-box">
+      <h2 style="font-family:'Newsreader',serif;font-size:22px;color:#24262b;margin:32px 0 24px;font-weight:500">Recursos relacionados</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px">
+        <sc-for list="{{ relatedResources }}" as="item" hint-placeholder-count="3">
+          <div style="background:#fff;border:1px solid #ece7dd;border-radius:6px;padding:22px;display:flex;flex-direction:column;gap:10px;transition:all 0.2s ease" style-hover="transform:translateY(-4px);box-shadow:0 12px 24px rgba(225,123,47,0.12);border-color:#f0c9a4">
+            <span style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#b5601f;font-weight:700;background:#fdf1e6;padding:4px 10px;border-radius:12px;align-self:flex-start">{{ item.type }}</span>
+            <p style="font-family:'Newsreader',serif;font-size:16px;color:#24262b;margin:0;font-weight:500;line-height:1.3">{{ item.title }}</p>
+            <button onClick="{{ item.open }}" style="align-self:flex-start;background:none;border:none;color:#E17B2F;font-weight:600;font-size:13px;cursor:pointer;padding:0">Ver contenido →</button>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+  </main>
+</sc-if>
+
+<footer style="background:#fff;border-top:1px solid #ece7dd;padding:56px 48px 28px;margin-top:auto">
+  <div style="max-width:1240px;margin:0 auto;display:flex;flex-wrap:wrap;gap:48px;justify-content:space-between">
+    <div style="flex:1 1 260px;min-width:220px">
+      <img src="assets/hk-logo.png" alt="HK Human Capital" style="height:28px;width:auto;object-fit:contain;margin-bottom:16px" />
+      <p style="font-size:14px;color:#767b82;line-height:1.6;margin:0 0 16px;max-width:280px">Executive search y gestión de talento en Chile.</p>
+      <a style="font-size:14px;text-decoration:none">LinkedIn</a>
+    </div>
+    <div style="flex:1 1 200px;min-width:180px">
+      <p style="font-size:13px;font-weight:600;color:#24262b;text-transform:uppercase;letter-spacing:0.04em;margin:0 0 16px">Legal</p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <a style="font-size:14px;text-decoration:none;color:#3f4247">Política de privacidad</a>
+        <a style="font-size:14px;text-decoration:none;color:#3f4247">Términos y condiciones</a>
+      </div>
+    </div>
+    <div style="flex:1 1 200px;min-width:180px">
+      <p style="font-size:13px;font-weight:600;color:#24262b;text-transform:uppercase;letter-spacing:0.04em;margin:0 0 16px">Contacto</p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <a style="font-size:14px;text-decoration:none;color:#3f4247">contacto@hkchile.cl</a>
+        <a style="font-size:14px;text-decoration:none;color:#3f4247">+56 2 2345 6789</a>
+      </div>
+    </div>
+  </div>
+  <div style="max-width:1240px;margin:32px auto 0;padding-top:24px;border-top:1px solid #f1ede5;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px">
+    <span style="font-size:13px;color:#9a958a">© 2026 HK Human Capital. Todos los derechos reservados.</span>
+    <a style="font-size:13px;color:#9a958a;text-decoration:none">Acceso administradores</a>
+  </div>
+</footer>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const CATEGORIES = ['Currículum','Entrevistas','Liderazgo','Desarrollo de carrera','Transición laboral','Mercado laboral','Negociación y renta'];
+
+const RESOURCES = [
+  {id:1, category:'Entrevistas', type:'Artículo', title:'Cómo preparar una entrevista ejecutiva', desc:'Claves para presentar tu trayectoria con seguridad frente a un directorio o comité ejecutivo.', downloadable:false,
+    bodyOne:'Una entrevista ejecutiva evalúa criterio y visión, no solo experiencia técnica. Prepara ejemplos concretos de decisiones que hayas tomado bajo presión y sus resultados medibles.',
+    bodyTwo:'Investiga a fondo a la organización y a quienes te entrevistarán. Llega con preguntas que demuestren pensamiento estratégico, no solo interés en el cargo.'},
+  {id:2, category:'Currículum', type:'Guía', title:'Cómo actualizar tu CV', desc:'Una guía práctica para ordenar tu experiencia y destacar logros relevantes para roles de liderazgo.', downloadable:true,
+    bodyOne:'Un CV ejecutivo debe priorizar resultados por sobre funciones. Cuantifica el impacto de tu gestión: crecimiento, eficiencia, equipos liderados.',
+    bodyTwo:'Mantén un formato limpio y de una a dos páginas. Actualízalo cada seis meses, incluso si no estás buscando un cambio activamente.'},
+  {id:3, category:'Transición laboral', type:'Artículo', title:'Cómo enfrentar una transición laboral', desc:'Recomendaciones para gestionar el cambio de rol o industria con claridad y confianza.', downloadable:false,
+    bodyOne:'Toda transición comienza con un diagnóstico honesto: qué buscas, qué estás dispuesto a soltar y qué te hace un candidato diferenciado.',
+    bodyTwo:'Activa tu red profesional de forma genuina y ordenada. La mayoría de los movimientos ejecutivos surgen de relaciones de confianza, no de postulaciones abiertas.'},
+  {id:4, category:'Mercado laboral', type:'Artículo', title:'Tendencias del mercado laboral', desc:'Un panorama de las habilidades y perfiles con mayor demanda en el mercado ejecutivo chileno.', downloadable:false,
+    bodyOne:'Las organizaciones buscan cada vez más perfiles con capacidad de liderar transformación y ambigüedad, más allá del dominio técnico.',
+    bodyTwo:'La movilidad entre industrias ha aumentado: la experiencia funcional profunda pesa más que la trayectoria dentro de un solo sector.'},
+  {id:5, category:'Liderazgo', type:'Video', title:'Desarrollo de liderazgo', desc:'Una conversación breve sobre cómo evolucionar de gerente a líder de alto impacto.', downloadable:false,
+    bodyOne:'Liderar equipos en contextos complejos exige pasar de dar respuestas a formular las preguntas correctas.',
+    bodyTwo:'El liderazgo se desarrolla con retroalimentación honesta y práctica deliberada, no solo con la experiencia acumulada.'},
+  {id:6, category:'Negociación y renta', type:'Guía', title:'Negociación de renta', desc:'Cómo prepararte para conversar condiciones de renta con seguridad y criterio.', downloadable:true,
+    bodyOne:'Antes de negociar, define tu rango de referencia con datos de mercado actualizados, no solo con tu expectativa personal.',
+    bodyTwo:'Considera la propuesta de forma integral: renta fija, variable, beneficios y proyección, no solo el número base.'},
+  {id:7, category:'Currículum', type:'Plantilla', title:'Plantilla de CV ejecutivo', desc:'Un formato editable para ordenar tu trayectoria de forma clara y profesional.', downloadable:true,
+    bodyOne:'Esta plantilla organiza tu experiencia por impacto y resultados, siguiendo el estándar que utilizan los procesos de executive search.',
+    bodyTwo:'Incluye secciones para logros cuantificables, formación y referencias, listas para adaptar a tu perfil.'},
+  {id:8, category:'Entrevistas', type:'Video', title:'Preguntas frecuentes en entrevistas de directorio', desc:'Ejemplos de preguntas habituales en procesos de alta dirección y cómo abordarlas.', downloadable:false,
+    bodyOne:'Los comités de búsqueda suelen indagar en decisiones difíciles y en cómo gestionaste sus consecuencias.',
+    bodyTwo:'Responder con estructura —contexto, decisión, resultado— transmite claridad y dominio de tu propia trayectoria.'},
+  {id:9, category:'Liderazgo', type:'Artículo', title:'Liderar equipos en tiempos de incertidumbre', desc:'Principios para sostener la confianza de un equipo durante procesos de cambio.', downloadable:false,
+    bodyOne:'La incertidumbre exige comunicación más frecuente, no menos. La ambigüedad se gestiona con transparencia sobre lo que se sabe y lo que no.',
+    bodyTwo:'Los equipos siguen a líderes que muestran calma y consistencia, incluso cuando no tienen todas las respuestas.'},
+  {id:10, category:'Desarrollo de carrera', type:'Guía', title:'Cómo construir un plan de carrera a 5 años', desc:'Un marco para definir objetivos profesionales de mediano plazo con foco e intención.', downloadable:true,
+    bodyOne:'Un plan de carrera sólido parte de identificar el tipo de impacto y responsabilidad que quieres tener, no solo el cargo al que aspiras.',
+    bodyTwo:'Revisa tu plan cada año: las prioridades cambian, y tu plan de carrera debe evolucionar contigo.'},
+  {id:11, category:'Desarrollo de carrera', type:'Artículo', title:'Mentoring: por qué todo ejecutivo lo necesita', desc:'El rol del mentoring en la toma de decisiones y el crecimiento profesional sostenido.', downloadable:false,
+    bodyOne:'Contar con un mentor externo a tu organización aporta una mirada sin sesgos internos sobre tus decisiones.',
+    bodyTwo:'El mentoring más valioso no da respuestas: ayuda a formular mejores preguntas sobre tu propio camino.'},
+  {id:12, category:'Transición laboral', type:'Video', title:'Historias de transición: directivos que dieron el salto', desc:'Testimonios sobre decisiones de cambio de industria o de rol en etapas clave de carrera.', downloadable:false,
+    bodyOne:'Quienes han transitado con éxito entre industrias coinciden en algo: prepararon su narrativa antes de buscar el cambio.',
+    bodyTwo:'La transición se vive con menos incertidumbre cuando se apoya en una red de confianza y en asesoría especializada.'},
+  {id:13, category:'Mercado laboral', type:'Plantilla', title:'Checklist: evalúa una oferta laboral', desc:'Una lista de verificación para analizar una propuesta más allá de la renta.', downloadable:true,
+    bodyOne:'Una oferta se evalúa en conjunto: cultura, proyección, equipo, condiciones y alineación con tus objetivos de carrera.',
+    bodyTwo:'Usa este checklist antes de responder a una propuesta, para tomar una decisión informada y sin apuro.'},
+  {id:14, category:'Negociación y renta', type:'Artículo', title:'Beneficios más allá del sueldo: qué negociar', desc:'Elementos de la propuesta total que suelen pasarse por alto en una negociación.', downloadable:false,
+    bodyOne:'Renta variable, bonos de ingreso, flexibilidad y desarrollo también son parte legítima de una negociación.',
+    bodyTwo:'Negociar con transparencia y datos de respaldo fortalece la relación con tu futuro empleador, no la debilita.'},
+];
+
+const FEATURED_IDS = [1,2,3,4,5,6];
+
+class Component extends DCLogic {
+  state = {
+    page: 'landing',
+    mobileMenuOpen: false,
+    form: {
+      nombre:'', apellido:'', email:'', telefono:'', cargo:'', empresa:'',
+      linkedin:'', ciudad:'', areaProfesional:'', anios:'',
+      cvFileName:null, areasInteres:[], aceptaPrivacidad:false, aceptaComunicaciones:false,
+    },
+    formError: '',
+    search: '',
+    selectedCategory: 'Todas',
+    selectedResourceId: 1,
+  };
+
+  goTo = (page) => { this.setState({ page, mobileMenuOpen:false }); if (typeof window !== 'undefined') window.scrollTo(0,0); };
+  toggleMobileMenu = () => this.setState(s => ({ mobileMenuOpen: !s.mobileMenuOpen }));
+
+  updateForm = (field) => (e) => {
+    const val = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+    this.setState(s => ({ form: { ...s.form, [field]: val } }));
+  };
+
+  toggleAreaInteres = (cat) => {
+    this.setState(s => {
+      const has = s.form.areasInteres.includes(cat);
+      const next = has ? s.form.areasInteres.filter(c => c !== cat) : [...s.form.areasInteres, cat];
+      return { form: { ...s.form, areasInteres: next } };
+    });
+  };
+
+  handleCvChange = (e) => {
+    const f = e.target.files && e.target.files[0];
+    this.setState(s => ({ form: { ...s.form, cvFileName: f ? f.name : null } }));
+  };
+
+  goToStep2 = () => this.setState({ page: 'form2' });
+  goToStep1 = () => this.setState({ page: 'form1' });
+
+  submitForm = () => {
+    if (!this.state.form.aceptaPrivacidad) {
+      this.setState({ formError: 'Debes aceptar la política de privacidad para continuar.' });
+      return;
+    }
+    this.setState({ formError: '', page: 'confirmation' });
+  };
+
+  openResource = (id) => {
+    this.setState({ selectedResourceId: id, page: 'detail' });
+    if (typeof window !== 'undefined') window.scrollTo(0,0);
+  };
+
+  setSearch = (e) => this.setState({ search: e.target.value });
+  setCategory = (cat) => this.setState({ selectedCategory: cat });
+
+  withOpen = (r) => ({ ...r, open: () => this.openResource(r.id) });
+
+  renderVals() {
+    const { page, form, search, selectedCategory, selectedResourceId, mobileMenuOpen, formError } = this.state;
+
+    const filtered = RESOURCES
+      .filter(r => (selectedCategory === 'Todas' || r.category === selectedCategory))
+      .filter(r => search.trim() === '' || r.title.toLowerCase().includes(search.trim().toLowerCase()))
+      .map(this.withOpen);
+
+    const featured = FEATURED_IDS.map(id => this.withOpen(RESOURCES.find(r => r.id === id)));
+
+    const selectedResourceRaw = RESOURCES.find(r => r.id === selectedResourceId) || RESOURCES[0];
+    const selectedResource = { ...selectedResourceRaw, coverSlotId: 'detail-cover-' + selectedResourceRaw.id };
+    const related = RESOURCES
+      .filter(r => r.category === selectedResourceRaw.category && r.id !== selectedResourceRaw.id)
+      .slice(0,3)
+      .map(this.withOpen);
+
+    return {
+      isLanding: page === 'landing', isForm1: page === 'form1', isForm2: page === 'form2',
+      isConfirmation: page === 'confirmation', isLibrary: page === 'library', isDetail: page === 'detail',
+
+      goHome: () => this.goTo('landing'), goLibrary: () => this.goTo('library'), goForm1: () => this.goTo('form1'),
+      mobileMenuOpen, toggleMobileMenu: this.toggleMobileMenu,
+
+      form,
+      updateNombre: this.updateForm('nombre'), updateApellido: this.updateForm('apellido'),
+      updateEmail: this.updateForm('email'), updateTelefono: this.updateForm('telefono'),
+      updateCargo: this.updateForm('cargo'), updateEmpresa: this.updateForm('empresa'),
+      updateLinkedin: this.updateForm('linkedin'), updateCiudad: this.updateForm('ciudad'),
+      updateAreaProfesional: this.updateForm('areaProfesional'), updateAnios: this.updateForm('anios'),
+      updateAceptaPrivacidad: this.updateForm('aceptaPrivacidad'), updateAceptaComunicaciones: this.updateForm('aceptaComunicaciones'),
+
+      goToStep2: this.goToStep2, goToStep1: this.goToStep1, submitForm: this.submitForm,
+      formError, hasFormError: !!formError,
+
+      handleCvChange: this.handleCvChange, hasCvFile: !!form.cvFileName, noCvFile: !form.cvFileName,
+
+      areaChips: CATEGORIES.map(c => ({ name: c, selected: form.areasInteres.includes(c), notSelected: !form.areasInteres.includes(c), toggle: () => this.toggleAreaInteres(c) })),
+
+      search, setSearch: this.setSearch,
+      categoryFilters: ['Todas', ...CATEGORIES].map(c => ({ name: c, selected: c === selectedCategory, notSelected: c !== selectedCategory, select: () => this.setCategory(c) })),
+
+      filteredResources: filtered, noResults: filtered.length === 0,
+      featuredResources: featured,
+      openResource: this.openResource,
+      selectedResource, relatedResources: related,
+    };
+  }
+}
+</script>
+</body>
+</html>
