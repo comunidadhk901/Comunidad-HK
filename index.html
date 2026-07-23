@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,500;0,600;1,400&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <script src="./image-slot.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   *{box-sizing:border-box;}
   body{margin:0;background:linear-gradient(180deg,#fdece0 0%,#faf8f4 460px);font-family:'Public Sans',sans-serif;}
@@ -124,6 +125,10 @@
 </div>
 
 <script>
+const SUPABASE_URL = 'https://dqxmcqenqedehlorvwms.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxeG1jcWVucWVkZWhsb3J2d21zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4MzY5ODcsImV4cCI6MjEwMDQxMjk4N30.Njcl2RwJmhs5CudI-um0Aoj0iQPOPRd_jezlkUnVO3A';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 const CATEGORIES = ['Currículum','Entrevistas','Liderazgo','Desarrollo de carrera','Transición laboral','Mercado laboral','Negociación y renta'];
 
 const RESOURCES = [
@@ -449,7 +454,7 @@ function renderForm2(){
 
     <div style="display:flex;gap:16px;margin-top:32px">
       <button class="hk-btn-outline" onclick="goToStep1()" style="flex:1;background:transparent;color:#24262b;border:1px solid #d8d2c6;padding:16px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Volver</button>
-      <button class="hk-btn-primary" onclick="submitForm()" style="flex:2;background:#E17B2F;color:#fff;border:none;padding:16px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Unirme a la Comunidad HK</button>
+      <button id="submit-form-btn" class="hk-btn-primary" onclick="submitForm()" style="flex:2;background:#E17B2F;color:#fff;border:none;padding:16px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Unirme a la Comunidad HK</button>
     </div>
   </section>`;
 }
@@ -479,7 +484,7 @@ function handleCvChange(e){
        <span style="font-size:13px;color:#767b82">Formato PDF · Este paso es opcional</span>`;
 }
 
-function submitForm(){
+async function submitForm(){
   if (!state.form.aceptaPrivacidad){
     state.formError = 'Debes aceptar la política de privacidad para continuar.';
     const el = document.getElementById('form-error');
@@ -488,6 +493,30 @@ function submitForm(){
     return;
   }
   state.formError = '';
+  const btn = document.getElementById('submit-form-btn');
+  const errEl = document.getElementById('form-error');
+  errEl.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+
+  const f = state.form;
+  const { error } = await supabaseClient.from('inscripciones').insert({
+    nombre: f.nombre, apellido: f.apellido, email: f.email, telefono: f.telefono,
+    cargo: f.cargo, empresa: f.empresa, linkedin: f.linkedin || null, ciudad: f.ciudad || null,
+    area_profesional: f.areaProfesional || null, anios_experiencia: f.anios || null,
+    cv_file_name: f.cvFileName, areas_interes: f.areasInteres,
+    acepta_privacidad: f.aceptaPrivacidad, acepta_comunicaciones: f.aceptaComunicaciones,
+  });
+
+  btn.disabled = false;
+  btn.textContent = 'Unirme a la Comunidad HK';
+
+  if (error){
+    state.formError = 'No pudimos enviar tu inscripción. Por favor intenta de nuevo en unos minutos.';
+    errEl.textContent = state.formError;
+    errEl.style.display = 'block';
+    return;
+  }
   goTo('confirmation');
 }
 
