@@ -196,7 +196,7 @@ const state = {
   page: 'landing',
   form: {
     nombre:'', apellido:'', email:'', telefono:'', cargo:'', empresa:'', carrera:'',
-    linkedin:'', ciudad:'', areaProfesional:'', anios:'',
+    linkedin:'', ciudad:'', areaProfesional:'', anios:'', motivacion:'',
     cvFileName:null, cvFile:null, areasInteres:[], aceptaPrivacidad:false, aceptaComunicaciones:false,
   },
   formError: '',
@@ -412,7 +412,7 @@ function renderForm1(){
       ${formField('Teléfono *','telefono',{type:'tel',placeholder:'+56 9 1234 5678'})}
       ${formField('Cargo actual *','cargo',{placeholder:'Ej: Gerente de Operaciones'})}
       ${formField('Empresa actual *','empresa',{placeholder:'Nombre de tu empresa'})}
-      ${formField('Carrera que estudiaste','carrera',{placeholder:'Ej: Ingeniería Comercial'})}
+      ${formField('Carrera','carrera',{placeholder:'Ej: Ingeniería Comercial'})}
       ${formField('LinkedIn','linkedin',{placeholder:'linkedin.com/in/tu-perfil'})}
       ${formField('Ciudad o país','ciudad',{placeholder:'Ej: Santiago, Chile'})}
       ${formField('Área profesional','areaProfesional',{placeholder:'Ej: Finanzas, Operaciones'})}
@@ -453,6 +453,9 @@ function renderForm2(){
     <div id="area-chips" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:36px">
       ${areaChipsHtml()}
     </div>
+
+    <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">¿Qué buscas al unirte a la Comunidad HK?</label>
+    <textarea id="f-motivacion" oninput="state.form.motivacion=this.value" placeholder="Cuéntanos brevemente (opcional)" rows="3" style="${inputStyle}margin-bottom:36px;resize:vertical;font-family:'Public Sans',sans-serif">${esc(state.form.motivacion || '')}</textarea>
 
     <div style="display:flex;flex-direction:column;gap:18px;padding:24px;background:#fff;border:1px solid #ece7dd;border-radius:6px">
       <label style="display:flex;align-items:flex-start;gap:12px;cursor:pointer">
@@ -538,6 +541,7 @@ async function submitForm(){
     linkedin: f.linkedin || null, ciudad: f.ciudad || null,
     area_profesional: f.areaProfesional || null, anios_experiencia: f.anios || null,
     cv_file_name: f.cvFileName, cv_storage_path: cvStoragePath, areas_interes: f.areasInteres,
+    motivacion: f.motivacion || null,
     acepta_privacidad: f.aceptaPrivacidad, acepta_comunicaciones: f.aceptaComunicaciones,
   });
 
@@ -704,36 +708,69 @@ async function adminLogout(){
   goTo('admin');
 }
 
-function renderAdminDashboard(email, inscripciones, admins, cvUrls){
+let adminListData = { inscripciones: [], admins: [], cvUrls: {} };
+
+function personCardHtml(r, cvUrls){
   cvUrls = cvUrls || {};
-  const rows = inscripciones.map(r => {
-    let cvCell = '—';
-    if (r.cv_storage_path && cvUrls[r.cv_storage_path]){
-      const url = cvUrls[r.cv_storage_path];
-      cvCell = `<a href="${url}" target="_blank" rel="noopener" style="font-weight:600">Ver</a> · <a href="${url}" download="${esc(r.cv_file_name||'cv.pdf')}" style="font-weight:600">Descargar</a>`;
-    } else if (r.cv_file_name){
-      cvCell = esc(r.cv_file_name);
-    }
-    return `
-    <tr style="border-bottom:1px solid #f1ede5">
-      <td style="padding:10px 12px;color:#3f4247;white-space:nowrap">${new Date(r.created_at).toLocaleDateString('es-CL')}</td>
-      <td style="padding:10px 12px;color:#24262b;font-weight:500;white-space:nowrap">${esc(r.nombre)} ${esc(r.apellido)}</td>
-      <td style="padding:10px 12px;color:#3f4247">${esc(r.email)}</td>
-      <td style="padding:10px 12px;color:#3f4247;white-space:nowrap">${esc(r.telefono)}</td>
-      <td style="padding:10px 12px;color:#3f4247">${esc(r.cargo)}</td>
-      <td style="padding:10px 12px;color:#3f4247">${esc(r.empresa)}</td>
-      <td style="padding:10px 12px;color:#3f4247">${r.carrera ? esc(r.carrera) : '—'}</td>
-      <td style="padding:10px 12px;color:#3f4247;white-space:nowrap">${r.anios_experiencia ? esc(r.anios_experiencia) : '—'}</td>
-      <td style="padding:10px 12px;color:#3f4247">${esc((r.areas_interes||[]).join(', '))}</td>
-      <td style="padding:10px 12px;color:#3f4247;white-space:nowrap">${cvCell}</td>
-    </tr>`;
-  }).join('') || `<tr><td colspan="10" style="padding:32px;text-align:center;color:#767b82">Aún no hay inscritos.</td></tr>`;
+  let cvHtml = '<span style="color:#9a958a">Sin CV</span>';
+  if (r.cv_storage_path && cvUrls[r.cv_storage_path]){
+    const url = cvUrls[r.cv_storage_path];
+    cvHtml = `<a href="${url}" target="_blank" rel="noopener" style="font-weight:600">Ver CV</a> · <a href="${url}" download="${esc(r.cv_file_name||'cv.pdf')}" style="font-weight:600">Descargar</a>`;
+  } else if (r.cv_file_name){
+    cvHtml = esc(r.cv_file_name);
+  }
+  const areas = r.areas_interes || [];
+  return `
+  <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:22px 24px;display:flex;flex-direction:column;gap:12px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+      <div>
+        <p style="font-family:'Newsreader',serif;font-size:18px;color:#24262b;margin:0;font-weight:500">${esc(r.nombre)} ${esc(r.apellido)}</p>
+        <p style="font-size:13px;color:#767b82;margin:4px 0 0">${esc(r.cargo)} · ${esc(r.empresa)}</p>
+      </div>
+      <span style="font-size:12px;color:#9a958a;white-space:nowrap">${new Date(r.created_at).toLocaleDateString('es-CL')}</span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px 20px;font-size:13px;color:#3f4247">
+      <span>${esc(r.email)}</span>
+      <span>${esc(r.telefono)}</span>
+      ${r.carrera ? `<span>${esc(r.carrera)}</span>` : ''}
+      ${r.anios_experiencia ? `<span>${esc(r.anios_experiencia)} años de experiencia</span>` : ''}
+      ${r.ciudad ? `<span>${esc(r.ciudad)}</span>` : ''}
+    </div>
+    ${areas.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px">${areas.map(a => `<span style="font-size:11px;letter-spacing:0.03em;text-transform:uppercase;color:#1d6f9c;background:#eaf3f8;padding:3px 9px;border-radius:10px;font-weight:600">${esc(a)}</span>`).join('')}</div>` : ''}
+    ${r.motivacion ? `<p style="font-size:13px;color:#5b5f64;line-height:1.5;margin:0;border-left:2px solid #f0c9a4;padding-left:12px;font-style:italic">"${esc(r.motivacion)}"</p>` : ''}
+    <div style="font-size:13px;padding-top:10px;border-top:1px solid #f1ede5">${cvHtml}</div>
+  </div>`;
+}
+
+function filterInscripcionesForSearch(list, term){
+  const t = (term || '').trim().toLowerCase();
+  if (!t) return list;
+  return list.filter(r => {
+    const haystack = [
+      r.nombre, r.apellido, r.email, r.cargo, r.empresa, r.carrera,
+      r.ciudad, r.area_profesional, ...(r.areas_interes||[])
+    ].filter(Boolean).join(' ').toLowerCase();
+    return haystack.includes(t);
+  });
+}
+
+function renderAdminList(){
+  const term = document.getElementById('admin-search').value;
+  const filtered = filterInscripcionesForSearch(adminListData.inscripciones, term);
+  document.getElementById('admin-list').innerHTML = filtered.length
+    ? filtered.map(r => personCardHtml(r, adminListData.cvUrls)).join('')
+    : `<p style="padding:32px;text-align:center;color:#767b82">No hay resultados para tu búsqueda.</p>`;
+  document.getElementById('admin-count').textContent = filtered.length + ' de ' + adminListData.inscripciones.length + ' inscritos';
+}
+
+function renderAdminDashboard(email, inscripciones, admins, cvUrls){
+  adminListData = { inscripciones, admins, cvUrls: cvUrls || {} };
 
   return `
-  <section style="max-width:1240px;margin:0 auto;padding:48px 48px 8px;box-sizing:border-box;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px">
+  <section style="max-width:900px;margin:0 auto;padding:48px 24px 8px;box-sizing:border-box;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px">
     <div>
       <h1 style="font-family:'Newsreader',serif;font-size:28px;color:#24262b;margin:0 0 6px;font-weight:500">Comunidad HK · Administración</h1>
-      <p style="color:#767b82;font-size:14px;margin:0">Conectado como ${esc(email)} · ${inscripciones.length} inscritos</p>
+      <p style="color:#767b82;font-size:14px;margin:0">Conectado como ${esc(email)}</p>
     </div>
     <div style="display:flex;gap:12px;flex-wrap:wrap">
       <button onclick="openAddAdminModal()" style="background:#fdf1e6;color:#b5601f;border:1px solid #f5d9b8;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer">+ Agregar administrador</button>
@@ -741,31 +778,20 @@ function renderAdminDashboard(email, inscripciones, admins, cvUrls){
     </div>
   </section>
 
-  <section style="max-width:1240px;margin:0 auto;padding:24px 48px 12px;box-sizing:border-box">
+  <section style="max-width:900px;margin:0 auto;padding:20px 24px 4px;box-sizing:border-box">
     <p style="font-size:13px;font-weight:600;color:#24262b;text-transform:uppercase;letter-spacing:0.04em;margin:0 0 10px">Administradores (${admins.length})</p>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">
       ${admins.map(a => `<span style="background:#fff;border:1px solid #ece7dd;padding:6px 12px;border-radius:16px;font-size:13px;color:#3f4247">${esc(a.email)}</span>`).join('')}
     </div>
   </section>
 
-  <section style="max-width:1240px;margin:0 auto;padding:16px 48px 96px;box-sizing:border-box;overflow-x:auto">
-    <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:1150px">
-      <thead>
-        <tr style="text-align:left;border-bottom:2px solid #ece7dd">
-          <th style="padding:10px 12px;color:#767b82;font-weight:600">Fecha</th>
-          <th style="padding:10px 12px;color:#767b82;font-weight:600">Nombre</th>
-          <th style="padding:10px 12px;color:#767b82;font-weight:600">Email</th>
-          <th style="padding:10px 12px;color:#767b82;font-weight:600">Teléfono</th>
-          <th style="padding:10px 12px;color:#767b82;font-weight:600">Cargo</th>
-          <th style="padding:10px 12px;color:#767b82;font-weight:600">Empresa</th>
-          <th style="padding:10px 12px;color:#767b82;font-weight:600">Carrera</th>
-          <th style="padding:10px 12px;color:#767b82;font-weight:600">Años exp.</th>
-          <th style="padding:10px 12px;color:#767b82;font-weight:600">Áreas de interés</th>
-          <th style="padding:10px 12px;color:#767b82;font-weight:600">CV</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>
+  <section style="max-width:900px;margin:0 auto;padding:24px 24px 8px;box-sizing:border-box">
+    <input class="hk-input" id="admin-search" oninput="renderAdminList()" type="text" placeholder="Buscar por nombre, cargo, carrera, área de interés..." style="${inputStyle}margin-bottom:8px" />
+    <p id="admin-count" style="font-size:13px;color:#9a958a;margin:0 0 20px">${inscripciones.length} de ${inscripciones.length} inscritos</p>
+  </section>
+
+  <section id="admin-list" style="max-width:900px;margin:0 auto;padding:0 24px 96px;box-sizing:border-box;display:flex;flex-direction:column;gap:16px">
+    ${inscripciones.length ? inscripciones.map(r => personCardHtml(r, cvUrls)).join('') : `<p style="padding:32px;text-align:center;color:#767b82">Aún no hay inscritos.</p>`}
   </section>`;
 }
 

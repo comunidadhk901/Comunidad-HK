@@ -10,11 +10,13 @@ insert into storage.buckets (id, name, public)
 values ('cvs', 'cvs', false)
 on conflict (id) do nothing;
 
+drop policy if exists "cualquiera puede subir su cv" on storage.objects;
 create policy "cualquiera puede subir su cv"
   on storage.objects for insert
   to anon
   with check (bucket_id = 'cvs');
 
+drop policy if exists "admins pueden ver los cv" on storage.objects;
 create policy "admins pueden ver los cv"
   on storage.objects for select
   to authenticated
