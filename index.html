@@ -137,6 +137,13 @@
   </div>
 </div>
 
+<div id="candidate-detail-modal" style="display:none;position:fixed;inset:0;background:rgba(36,38,43,0.55);z-index:100;align-items:center;justify-content:center;padding:24px" onclick="if(event.target===this) closeCandidateDetail()">
+  <div style="background:#fff;border-radius:8px;max-width:560px;width:100%;max-height:85vh;overflow-y:auto;padding:36px;position:relative;box-sizing:border-box">
+    <button onclick="closeCandidateDetail()" aria-label="Cerrar" style="position:absolute;top:16px;right:16px;background:none;border:none;font-size:20px;color:#9a958a;cursor:pointer;line-height:1;padding:4px">×</button>
+    <div id="candidate-detail-content"></div>
+  </div>
+</div>
+
 <script>
 const SUPABASE_URL = 'https://dqxmcqenqedehlorvwms.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxeG1jcWVucWVkZWhsb3J2d21zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4MzY5ODcsImV4cCI6MjEwMDQxMjk4N30.Njcl2RwJmhs5CudI-um0Aoj0iQPOPRd_jezlkUnVO3A';
@@ -527,7 +534,7 @@ async function submitForm(){
     if (uploadError){
       btn.disabled = false;
       btn.textContent = 'Unirme a la Comunidad HK';
-      state.formError = 'No pudimos subir tu CV. Intenta de nuevo.';
+      state.formError = 'No pudimos subir tu CV: ' + uploadError.message;
       errEl.textContent = state.formError;
       errEl.style.display = 'block';
       return;
@@ -710,18 +717,21 @@ async function adminLogout(){
 
 let adminListData = { inscripciones: [], admins: [], cvUrls: {} };
 
-function personCardHtml(r, cvUrls){
-  cvUrls = cvUrls || {};
-  let cvHtml = '<span style="color:#9a958a">Sin CV</span>';
+function cvLinksHtml(r, cvUrls, stopClick){
+  const stop = stopClick ? 'event.stopPropagation();' : '';
   if (r.cv_storage_path && cvUrls[r.cv_storage_path]){
     const url = cvUrls[r.cv_storage_path];
-    cvHtml = `<a href="${url}" target="_blank" rel="noopener" style="font-weight:600">Ver CV</a> · <a href="${url}" download="${esc(r.cv_file_name||'cv.pdf')}" style="font-weight:600">Descargar</a>`;
-  } else if (r.cv_file_name){
-    cvHtml = esc(r.cv_file_name);
+    return `<a href="${url}" target="_blank" rel="noopener" onclick="${stop}" style="font-weight:600">Ver CV</a> · <a href="${url}" download="${esc(r.cv_file_name||'cv.pdf')}" onclick="${stop}" style="font-weight:600">Descargar</a>`;
   }
+  if (r.cv_file_name) return esc(r.cv_file_name);
+  return '<span style="color:#9a958a">Sin CV</span>';
+}
+
+function personCardHtml(r, cvUrls){
+  cvUrls = cvUrls || {};
   const areas = r.areas_interes || [];
   return `
-  <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:22px 24px;display:flex;flex-direction:column;gap:12px">
+  <div onclick="openCandidateDetail('${r.id}')" style="cursor:pointer;background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:22px 24px;display:flex;flex-direction:column;gap:12px;transition:all 0.2s ease" class="hk-card-hover">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
       <div>
         <p style="font-family:'Newsreader',serif;font-size:18px;color:#24262b;margin:0;font-weight:500">${esc(r.nombre)} ${esc(r.apellido)}</p>
@@ -738,8 +748,45 @@ function personCardHtml(r, cvUrls){
     </div>
     ${areas.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px">${areas.map(a => `<span style="font-size:11px;letter-spacing:0.03em;text-transform:uppercase;color:#1d6f9c;background:#eaf3f8;padding:3px 9px;border-radius:10px;font-weight:600">${esc(a)}</span>`).join('')}</div>` : ''}
     ${r.motivacion ? `<p style="font-size:13px;color:#5b5f64;line-height:1.5;margin:0;border-left:2px solid #f0c9a4;padding-left:12px;font-style:italic">"${esc(r.motivacion)}"</p>` : ''}
-    <div style="font-size:13px;padding-top:10px;border-top:1px solid #f1ede5">${cvHtml}</div>
+    <div style="font-size:13px;padding-top:10px;border-top:1px solid #f1ede5">${cvLinksHtml(r, cvUrls, true)}</div>
   </div>`;
+}
+
+function detailField(label, value){
+  return `
+    <div style="padding:10px 0;border-bottom:1px solid #f1ede5">
+      <p style="font-size:12px;font-weight:600;color:#9a958a;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 4px">${label}</p>
+      <p style="font-size:14px;color:#24262b;margin:0">${value}</p>
+    </div>`;
+}
+
+function openCandidateDetail(id){
+  const r = adminListData.inscripciones.find(x => x.id === id);
+  if (!r) return;
+  const areas = r.areas_interes || [];
+  const html = `
+    <h2 style="font-family:'Newsreader',serif;font-size:24px;color:#24262b;margin:0 0 4px;font-weight:500">${esc(r.nombre)} ${esc(r.apellido)}</h2>
+    <p style="font-size:13px;color:#9a958a;margin:0 0 20px">Inscrito el ${new Date(r.created_at).toLocaleDateString('es-CL')}</p>
+    ${detailField('Email', esc(r.email))}
+    ${detailField('Teléfono', esc(r.telefono))}
+    ${detailField('Cargo actual', esc(r.cargo))}
+    ${detailField('Empresa actual', esc(r.empresa))}
+    ${r.carrera ? detailField('Carrera', esc(r.carrera)) : ''}
+    ${r.linkedin ? detailField('LinkedIn', esc(r.linkedin)) : ''}
+    ${r.ciudad ? detailField('Ciudad o país', esc(r.ciudad)) : ''}
+    ${r.area_profesional ? detailField('Área profesional', esc(r.area_profesional)) : ''}
+    ${r.anios_experiencia ? detailField('Años de experiencia', esc(r.anios_experiencia)) : ''}
+    ${areas.length ? detailField('Áreas de interés', areas.map(a => `<span style="display:inline-block;font-size:11px;letter-spacing:0.03em;text-transform:uppercase;color:#1d6f9c;background:#eaf3f8;padding:3px 9px;border-radius:10px;font-weight:600;margin:2px 4px 2px 0">${esc(a)}</span>`).join('')) : ''}
+    ${r.motivacion ? detailField('Qué busca al unirse', esc(r.motivacion)) : ''}
+    ${detailField('Quiere recibir comunicaciones', r.acepta_comunicaciones ? 'Sí' : 'No')}
+    ${detailField('CV', cvLinksHtml(r, adminListData.cvUrls, false))}
+  `;
+  document.getElementById('candidate-detail-content').innerHTML = html;
+  document.getElementById('candidate-detail-modal').style.display = 'flex';
+}
+
+function closeCandidateDetail(){
+  document.getElementById('candidate-detail-modal').style.display = 'none';
 }
 
 function filterInscripcionesForSearch(list, term){
