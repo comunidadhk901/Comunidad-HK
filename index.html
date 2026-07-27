@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,500;0,600;1,400&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <script src="./image-slot.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <style>
   *{box-sizing:border-box;}
   body{margin:0;background:linear-gradient(180deg,#fdece0 0%,#faf8f4 460px);font-family:'Public Sans',sans-serif;}
@@ -273,6 +274,7 @@ const state = {
   form: {
     nombre:'', apellido:'', email:'', telefono:'', cargo:'', empresa:'', carrera:'',
     linkedin:'', ciudad:'', areaProfesional:'', anios:'', motivacion:'',
+    infoCoaching:false, infoOutplacement:false, infoOtro:'',
     cvFileName:null, cvFile:null, areasInteres:[], aceptaPrivacidad:false, aceptaComunicaciones:false,
   },
   formError: '',
@@ -516,7 +518,23 @@ function renderForm2(){
     </div>
 
     <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">¿Qué buscas al unirte a la Comunidad HK?</label>
-    <textarea id="f-motivacion" oninput="state.form.motivacion=this.value" placeholder="Cuéntanos brevemente (opcional)" rows="3" style="${inputStyle}margin-bottom:36px;resize:vertical;font-family:'Public Sans',sans-serif">${esc(state.form.motivacion || '')}</textarea>
+    <textarea id="f-motivacion" oninput="state.form.motivacion=this.value" placeholder="Cuéntanos brevemente (opcional)" rows="3" style="${inputStyle}margin-bottom:24px;resize:vertical;font-family:'Public Sans',sans-serif">${esc(state.form.motivacion || '')}</textarea>
+
+    <div style="display:flex;flex-direction:column;gap:14px;padding:24px;background:#fff;border:1px solid #ece7dd;border-radius:6px;margin-bottom:24px">
+      <p style="font-size:14px;font-weight:600;color:#24262b;margin:0">¿Quieres más información sobre alguno de nuestros programas?</p>
+      <label style="display:flex;align-items:center;gap:12px;cursor:pointer">
+        <input type="checkbox" ${state.form.infoCoaching?'checked':''} onchange="state.form.infoCoaching=this.checked" style="width:18px;height:18px;accent-color:#E17B2F;flex-shrink:0" />
+        <span style="font-size:14px;color:#3f4247">Programa Coaching</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:12px;cursor:pointer">
+        <input type="checkbox" ${state.form.infoOutplacement?'checked':''} onchange="state.form.infoOutplacement=this.checked" style="width:18px;height:18px;accent-color:#E17B2F;flex-shrink:0" />
+        <span style="font-size:14px;color:#3f4247">Programa Outplacement</span>
+      </label>
+      <div>
+        <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:6px">Otro — cuéntanos qué te gustaría saber</label>
+        <textarea oninput="state.form.infoOtro=this.value" rows="2" placeholder="Opcional" style="${inputStyle}resize:vertical;font-family:'Public Sans',sans-serif">${esc(state.form.infoOtro || '')}</textarea>
+      </div>
+    </div>
 
     <div style="display:flex;flex-direction:column;gap:18px;padding:24px;background:#fff;border:1px solid #ece7dd;border-radius:6px">
       <label style="display:flex;align-items:flex-start;gap:12px;cursor:pointer">
@@ -603,6 +621,8 @@ async function submitForm(){
     area_profesional: f.areaProfesional || null, anios_experiencia: f.anios || null,
     cv_file_name: f.cvFileName, cv_storage_path: cvStoragePath, areas_interes: f.areasInteres,
     motivacion: f.motivacion || null,
+    quiere_info_coaching: f.infoCoaching, quiere_info_outplacement: f.infoOutplacement,
+    quiere_info_otro: f.infoOtro || null,
     acepta_privacidad: f.aceptaPrivacidad, acepta_comunicaciones: f.aceptaComunicaciones,
   });
 
@@ -781,11 +801,21 @@ function cvLinksHtml(r, cvUrls, stopClick){
   return '<span style="color:#9a958a">Sin CV</span>';
 }
 
+function infoRequestLabels(r){
+  const labels = [];
+  if (r.quiere_info_coaching) labels.push('Coaching');
+  if (r.quiere_info_outplacement) labels.push('Outplacement');
+  if (r.quiere_info_otro) labels.push('Otro');
+  return labels;
+}
+
 function personCardHtml(r, cvUrls){
   cvUrls = cvUrls || {};
   const areas = r.areas_interes || [];
+  const infoLabels = infoRequestLabels(r);
   return `
-  <div onclick="openCandidateDetail('${r.id}')" style="cursor:pointer;background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:22px 24px;display:flex;flex-direction:column;gap:12px;transition:all 0.2s ease" class="hk-card-hover">
+  <div onclick="openCandidateDetail('${r.id}')" style="cursor:pointer;background:#fff;border:1px solid ${infoLabels.length ? '#f0c9a4' : '#ece7dd'};border-radius:8px;padding:22px 24px;display:flex;flex-direction:column;gap:12px;transition:all 0.2s ease" class="hk-card-hover">
+    ${infoLabels.length ? `<div style="background:#fdece0;border:1px solid #f0c9a4;border-radius:6px;padding:8px 12px;font-size:12px;font-weight:700;color:#b5601f;text-transform:uppercase;letter-spacing:0.03em">Solicita información: ${infoLabels.join(', ')}</div>` : ''}
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
       <div>
         <p style="font-family:'Newsreader',serif;font-size:18px;color:#24262b;margin:0;font-weight:500">${esc(r.nombre)} ${esc(r.apellido)}</p>
@@ -832,6 +862,8 @@ function openCandidateDetail(id){
     ${r.anios_experiencia ? detailField('Años de experiencia', esc(r.anios_experiencia)) : ''}
     ${areas.length ? detailField('Áreas de interés', areas.map(a => `<span style="display:inline-block;font-size:11px;letter-spacing:0.03em;text-transform:uppercase;color:#1d6f9c;background:#eaf3f8;padding:3px 9px;border-radius:10px;font-weight:600;margin:2px 4px 2px 0">${esc(a)}</span>`).join('')) : ''}
     ${r.motivacion ? detailField('Qué busca al unirse', esc(r.motivacion)) : ''}
+    ${infoRequestLabels(r).length ? detailField('Solicita información sobre', infoRequestLabels(r).join(', ')) : ''}
+    ${r.quiere_info_otro ? detailField('Detalle de "otro"', esc(r.quiere_info_otro)) : ''}
     ${detailField('Quiere recibir comunicaciones', r.acepta_comunicaciones ? 'Sí' : 'No')}
     ${detailField('CV', cvLinksHtml(r, adminListData.cvUrls, false))}
   `;
@@ -855,37 +887,92 @@ function filterInscripcionesForSearch(list, term){
   });
 }
 
+function sortForAdmin(list){
+  return [...list].sort((a, b) => {
+    const aFlag = infoRequestLabels(a).length ? 1 : 0;
+    const bFlag = infoRequestLabels(b).length ? 1 : 0;
+    if (aFlag !== bFlag) return bFlag - aFlag;
+    return new Date(b.created_at) - new Date(a.created_at);
+  });
+}
+
 function renderAdminList(){
   const term = document.getElementById('admin-search').value;
-  const filtered = filterInscripcionesForSearch(adminListData.inscripciones, term);
+  const filtered = sortForAdmin(filterInscripcionesForSearch(adminListData.inscripciones, term));
   document.getElementById('admin-list').innerHTML = filtered.length
     ? filtered.map(r => personCardHtml(r, adminListData.cvUrls)).join('')
     : `<p style="padding:32px;text-align:center;color:#767b82">No hay resultados para tu búsqueda.</p>`;
-  document.getElementById('admin-count').textContent = filtered.length + ' de ' + adminListData.inscripciones.length + ' inscritos';
+  const pendientes = filtered.filter(r => infoRequestLabels(r).length).length;
+  document.getElementById('admin-count').textContent = filtered.length + ' de ' + adminListData.inscripciones.length + ' inscritos' + (pendientes ? ' · ' + pendientes + ' esperando contacto' : '');
 }
 
-function csvEscape(val){
-  const s = (val === null || val === undefined) ? '' : String(val);
-  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
-}
-
-function exportInscripcionesCsv(){
+async function exportInscripcionesExcel(){
   const term = document.getElementById('admin-search') ? document.getElementById('admin-search').value : '';
-  const list = filterInscripcionesForSearch(adminListData.inscripciones, term);
-  const headers = ['Fecha','Nombre','Apellido','Email','Teléfono','Cargo','Empresa','Carrera','Años de experiencia','Ciudad','Área profesional','LinkedIn','Áreas de interés','Qué busca al unirse','Acepta comunicaciones','CV'];
-  const rows = list.map(r => [
-    new Date(r.created_at).toLocaleDateString('es-CL'),
-    r.nombre, r.apellido, r.email, r.telefono, r.cargo, r.empresa,
-    r.carrera || '', r.anios_experiencia || '', r.ciudad || '', r.area_profesional || '',
-    r.linkedin || '', (r.areas_interes || []).join('; '), r.motivacion || '',
-    r.acepta_comunicaciones ? 'Sí' : 'No', r.cv_file_name || '',
-  ]);
-  const csv = '﻿' + [headers, ...rows].map(row => row.map(csvEscape).join(',')).join('\r\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const list = sortForAdmin(filterInscripcionesForSearch(adminListData.inscripciones, term));
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Comunidad de Talento HK';
+  wb.created = new Date();
+  const sheet = wb.addWorksheet('Comunidad HK', { views: [{ state: 'frozen', ySplit: 1 }] });
+
+  sheet.columns = [
+    { header: 'Fecha', key: 'fecha', width: 12 },
+    { header: 'Nombre', key: 'nombre', width: 16 },
+    { header: 'Apellido', key: 'apellido', width: 16 },
+    { header: 'Email', key: 'email', width: 28 },
+    { header: 'Teléfono', key: 'telefono', width: 16 },
+    { header: 'Cargo', key: 'cargo', width: 24 },
+    { header: 'Empresa', key: 'empresa', width: 24 },
+    { header: 'Carrera', key: 'carrera', width: 22 },
+    { header: 'Años exp.', key: 'anios', width: 10 },
+    { header: 'Ciudad', key: 'ciudad', width: 16 },
+    { header: 'Área profesional', key: 'area', width: 18 },
+    { header: 'LinkedIn', key: 'linkedin', width: 32 },
+    { header: 'Áreas de interés', key: 'areas', width: 30 },
+    { header: 'Qué busca al unirse', key: 'motivacion', width: 36 },
+    { header: 'Solicita información', key: 'solicitaInfo', width: 22 },
+    { header: 'Detalle "otro"', key: 'infoOtro', width: 30 },
+    { header: 'Acepta comunicaciones', key: 'comunicaciones', width: 16 },
+    { header: 'CV', key: 'cv', width: 20 },
+  ];
+
+  const headerRow = sheet.getRow(1);
+  headerRow.eachCell(cell => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE17B2F' } };
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+    cell.alignment = { vertical: 'middle' };
+  });
+  headerRow.height = 24;
+
+  list.forEach((r, i) => {
+    const infoLabels = infoRequestLabels(r);
+    const row = sheet.addRow({
+      fecha: new Date(r.created_at),
+      nombre: r.nombre, apellido: r.apellido, email: r.email, telefono: r.telefono,
+      cargo: r.cargo, empresa: r.empresa, carrera: r.carrera || '', anios: r.anios_experiencia || '',
+      ciudad: r.ciudad || '', area: r.area_profesional || '', linkedin: r.linkedin || '',
+      areas: (r.areas_interes || []).join(', '), motivacion: r.motivacion || '',
+      solicitaInfo: infoLabels.join(', '), infoOtro: r.quiere_info_otro || '',
+      comunicaciones: r.acepta_comunicaciones ? 'Sí' : 'No', cv: r.cv_file_name || '',
+    });
+    row.getCell('fecha').numFmt = 'dd/mm/yyyy';
+    row.alignment = { vertical: 'top', wrapText: true };
+    const fillColor = infoLabels.length ? 'FFFDF1E6' : (i % 2 === 0 ? 'FFFFFFFF' : 'FFFAF8F4');
+    row.eachCell({ includeEmpty: true }, cell => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fillColor } };
+      cell.border = { bottom: { style: 'thin', color: { argb: 'FFECE7DD' } } };
+    });
+    if (infoLabels.length) row.getCell('solicitaInfo').font = { bold: true, color: { argb: 'FFB5601F' } };
+  });
+
+  sheet.autoFilter = { from: 'A1', to: 'R1' };
+
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'comunidad-hk-' + new Date().toISOString().slice(0, 10) + '.csv';
+  a.download = 'comunidad-hk-' + new Date().toISOString().slice(0, 10) + '.xlsx';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -894,6 +981,8 @@ function exportInscripcionesCsv(){
 
 function renderAdminDashboard(email, inscripciones, admins, cvUrls){
   adminListData = { inscripciones, admins, cvUrls: cvUrls || {} };
+  const sorted = sortForAdmin(inscripciones);
+  const pendientes = sorted.filter(r => infoRequestLabels(r).length).length;
 
   return `
   <section style="max-width:900px;margin:0 auto;padding:48px 24px 8px;box-sizing:border-box;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px">
@@ -902,7 +991,7 @@ function renderAdminDashboard(email, inscripciones, admins, cvUrls){
       <p style="color:#767b82;font-size:14px;margin:0">Conectado como ${esc(email)}</p>
     </div>
     <div style="display:flex;gap:12px;flex-wrap:wrap">
-      <button onclick="exportInscripcionesCsv()" style="background:#eaf3f8;color:#1d6f9c;border:1px solid #cfe3ee;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer">Exportar CSV</button>
+      <button onclick="exportInscripcionesExcel()" style="background:#eaf3f8;color:#1d6f9c;border:1px solid #cfe3ee;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer">Exportar Excel</button>
       <button onclick="openAddAdminModal()" style="background:#fdf1e6;color:#b5601f;border:1px solid #f5d9b8;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer">+ Agregar administrador</button>
       <button class="hk-btn-outline" onclick="adminLogout()" style="background:transparent;color:#24262b;border:1px solid #d8d2c6;padding:10px 18px;border-radius:4px;font-weight:600;font-size:13px;cursor:pointer">Cerrar sesión</button>
     </div>
@@ -917,11 +1006,11 @@ function renderAdminDashboard(email, inscripciones, admins, cvUrls){
 
   <section style="max-width:900px;margin:0 auto;padding:24px 24px 8px;box-sizing:border-box">
     <input class="hk-input" id="admin-search" oninput="renderAdminList()" type="text" placeholder="Buscar por nombre, cargo, carrera, área de interés..." style="${inputStyle}margin-bottom:8px" />
-    <p id="admin-count" style="font-size:13px;color:#9a958a;margin:0 0 20px">${inscripciones.length} de ${inscripciones.length} inscritos</p>
+    <p id="admin-count" style="font-size:13px;color:#9a958a;margin:0 0 20px">${inscripciones.length} de ${inscripciones.length} inscritos${pendientes ? ' · ' + pendientes + ' esperando contacto' : ''}</p>
   </section>
 
   <section id="admin-list" style="max-width:900px;margin:0 auto;padding:0 24px 96px;box-sizing:border-box;display:flex;flex-direction:column;gap:16px">
-    ${inscripciones.length ? inscripciones.map(r => personCardHtml(r, cvUrls)).join('') : `<p style="padding:32px;text-align:center;color:#767b82">Aún no hay inscritos.</p>`}
+    ${sorted.length ? sorted.map(r => personCardHtml(r, cvUrls)).join('') : `<p style="padding:32px;text-align:center;color:#767b82">Aún no hay inscritos.</p>`}
   </section>`;
 }
 
