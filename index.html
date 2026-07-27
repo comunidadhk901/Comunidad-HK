@@ -143,6 +143,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const CATEGORIES = ['Currículum','Entrevistas','Liderazgo','Desarrollo de carrera','Transición laboral','Mercado laboral','Negociación y renta'];
+const AREAS_INTERES = ['Outplacement','Coaching','Búsqueda laboral','Transición laboral'];
 
 const RESOURCES = [
   {id:1, category:'Entrevistas', type:'Artículo', title:'Cómo preparar una entrevista ejecutiva', desc:'Claves para presentar tu trayectoria con seguridad frente a un directorio o comité ejecutivo.', downloadable:false,
@@ -194,9 +195,9 @@ const FEATURED_IDS = [1,2,3,4,5,6];
 const state = {
   page: 'landing',
   form: {
-    nombre:'', apellido:'', email:'', telefono:'', cargo:'', empresa:'',
+    nombre:'', apellido:'', email:'', telefono:'', cargo:'', empresa:'', carrera:'',
     linkedin:'', ciudad:'', areaProfesional:'', anios:'',
-    cvFileName:null, areasInteres:[], aceptaPrivacidad:false, aceptaComunicaciones:false,
+    cvFileName:null, cvFile:null, areasInteres:[], aceptaPrivacidad:false, aceptaComunicaciones:false,
   },
   formError: '',
   search: '',
@@ -411,6 +412,7 @@ function renderForm1(){
       ${formField('Teléfono *','telefono',{type:'tel',placeholder:'+56 9 1234 5678'})}
       ${formField('Cargo actual *','cargo',{placeholder:'Ej: Gerente de Operaciones'})}
       ${formField('Empresa actual *','empresa',{placeholder:'Nombre de tu empresa'})}
+      ${formField('Carrera que estudiaste','carrera',{placeholder:'Ej: Ingeniería Comercial'})}
       ${formField('LinkedIn','linkedin',{placeholder:'linkedin.com/in/tu-perfil'})}
       ${formField('Ciudad o país','ciudad',{placeholder:'Ej: Santiago, Chile'})}
       ${formField('Área profesional','areaProfesional',{placeholder:'Ej: Finanzas, Operaciones'})}
@@ -473,7 +475,7 @@ function renderForm2(){
 }
 
 function areaChipsHtml(){
-  return CATEGORIES.map(c => {
+  return AREAS_INTERES.map(c => {
     const selected = state.form.areasInteres.includes(c);
     return selected
       ? `<button class="hk-chip" onclick="toggleAreaInteres('${esc(c)}')" style="background:#E17B2F;color:#fff;border:1px solid #E17B2F;padding:10px 18px;border-radius:20px;font-size:14px;font-weight:600">${esc(c)}</button>`
@@ -489,6 +491,7 @@ function toggleAreaInteres(cat){
 
 function handleCvChange(e){
   const f = e.target.files && e.target.files[0];
+  state.form.cvFile = f || null;
   state.form.cvFileName = f ? f.name : null;
   document.getElementById('dropzone-content').innerHTML = state.form.cvFileName
     ? `<span style="font-weight:600;color:#24262b;font-size:15px">${esc(state.form.cvFileName)} ✓</span>
@@ -513,11 +516,28 @@ async function submitForm(){
   btn.textContent = 'Enviando...';
 
   const f = state.form;
+  let cvStoragePath = null;
+  if (f.cvFile){
+    const safeName = f.cvFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+    const path = crypto.randomUUID() + '-' + safeName;
+    const { error: uploadError } = await supabaseClient.storage.from('cvs').upload(path, f.cvFile);
+    if (uploadError){
+      btn.disabled = false;
+      btn.textContent = 'Unirme a la Comunidad HK';
+      state.formError = 'No pudimos subir tu CV. Intenta de nuevo.';
+      errEl.textContent = state.formError;
+      errEl.style.display = 'block';
+      return;
+    }
+    cvStoragePath = path;
+  }
+
   const { error } = await supabaseClient.from('inscripciones').insert({
     nombre: f.nombre, apellido: f.apellido, email: f.email, telefono: f.telefono,
-    cargo: f.cargo, empresa: f.empresa, linkedin: f.linkedin || null, ciudad: f.ciudad || null,
+    cargo: f.cargo, empresa: f.empresa, carrera: f.carrera || null,
+    linkedin: f.linkedin || null, ciudad: f.ciudad || null,
     area_profesional: f.areaProfesional || null, anios_experiencia: f.anios || null,
-    cv_file_name: f.cvFileName, areas_interes: f.areasInteres,
+    cv_file_name: f.cvFileName, cv_storage_path: cvStoragePath, areas_interes: f.areasInteres,
     acepta_privacidad: f.aceptaPrivacidad, acepta_comunicaciones: f.aceptaComunicaciones,
   });
 
@@ -684,8 +704,17 @@ async function adminLogout(){
   goTo('admin');
 }
 
-function renderAdminDashboard(email, inscripciones, admins){
-  const rows = inscripciones.map(r => `
+function renderAdminDashboard(email, inscripciones, admins, cvUrls){
+  cvUrls = cvUrls || {};
+  const rows = inscripciones.map(r => {
+    let cvCell = '—';
+    if (r.cv_storage_path && cvUrls[r.cv_storage_path]){
+      const url = cvUrls[r.cv_storage_path];
+      cvCell = `<a href="${url}" target="_blank" rel="noopener" style="font-weight:600">Ver</a> · <a href="${url}" download="${esc(r.cv_file_name||'cv.pdf')}" style="font-weight:600">Descargar</a>`;
+    } else if (r.cv_file_name){
+      cvCell = esc(r.cv_file_name);
+    }
+    return `
     <tr style="border-bottom:1px solid #f1ede5">
       <td style="padding:10px 12px;color:#3f4247;white-space:nowrap">${new Date(r.created_at).toLocaleDateString('es-CL')}</td>
       <td style="padding:10px 12px;color:#24262b;font-weight:500;white-space:nowrap">${esc(r.nombre)} ${esc(r.apellido)}</td>
@@ -693,9 +722,12 @@ function renderAdminDashboard(email, inscripciones, admins){
       <td style="padding:10px 12px;color:#3f4247;white-space:nowrap">${esc(r.telefono)}</td>
       <td style="padding:10px 12px;color:#3f4247">${esc(r.cargo)}</td>
       <td style="padding:10px 12px;color:#3f4247">${esc(r.empresa)}</td>
+      <td style="padding:10px 12px;color:#3f4247">${r.carrera ? esc(r.carrera) : '—'}</td>
+      <td style="padding:10px 12px;color:#3f4247;white-space:nowrap">${r.anios_experiencia ? esc(r.anios_experiencia) : '—'}</td>
       <td style="padding:10px 12px;color:#3f4247">${esc((r.areas_interes||[]).join(', '))}</td>
-      <td style="padding:10px 12px;color:#3f4247">${r.cv_file_name ? esc(r.cv_file_name) : '—'}</td>
-    </tr>`).join('') || `<tr><td colspan="8" style="padding:32px;text-align:center;color:#767b82">Aún no hay inscritos.</td></tr>`;
+      <td style="padding:10px 12px;color:#3f4247;white-space:nowrap">${cvCell}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="10" style="padding:32px;text-align:center;color:#767b82">Aún no hay inscritos.</td></tr>`;
 
   return `
   <section style="max-width:1240px;margin:0 auto;padding:48px 48px 8px;box-sizing:border-box;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px">
@@ -717,7 +749,7 @@ function renderAdminDashboard(email, inscripciones, admins){
   </section>
 
   <section style="max-width:1240px;margin:0 auto;padding:16px 48px 96px;box-sizing:border-box;overflow-x:auto">
-    <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:900px">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:1150px">
       <thead>
         <tr style="text-align:left;border-bottom:2px solid #ece7dd">
           <th style="padding:10px 12px;color:#767b82;font-weight:600">Fecha</th>
@@ -726,6 +758,8 @@ function renderAdminDashboard(email, inscripciones, admins){
           <th style="padding:10px 12px;color:#767b82;font-weight:600">Teléfono</th>
           <th style="padding:10px 12px;color:#767b82;font-weight:600">Cargo</th>
           <th style="padding:10px 12px;color:#767b82;font-weight:600">Empresa</th>
+          <th style="padding:10px 12px;color:#767b82;font-weight:600">Carrera</th>
+          <th style="padding:10px 12px;color:#767b82;font-weight:600">Años exp.</th>
           <th style="padding:10px 12px;color:#767b82;font-weight:600">Áreas de interés</th>
           <th style="padding:10px 12px;color:#767b82;font-weight:600">CV</th>
         </tr>
@@ -775,7 +809,13 @@ async function renderAdminAsync(){
     supabaseClient.from('inscripciones').select('*').order('created_at', { ascending:false }),
     supabaseClient.from('admin_emails').select('*').order('created_at', { ascending:true }),
   ]);
-  document.getElementById('main').innerHTML = renderAdminDashboard(session.user.email, inscripciones||[], admins||[]);
+  const cvPaths = (inscripciones||[]).filter(r => r.cv_storage_path).map(r => r.cv_storage_path);
+  let cvUrls = {};
+  if (cvPaths.length){
+    const { data: signed } = await supabaseClient.storage.from('cvs').createSignedUrls(cvPaths, 3600);
+    (signed||[]).forEach(s => { if (s.signedUrl) cvUrls[s.path] = s.signedUrl; });
+  }
+  document.getElementById('main').innerHTML = renderAdminDashboard(session.user.email, inscripciones||[], admins||[], cvUrls);
 }
 
 function renderMain(){
