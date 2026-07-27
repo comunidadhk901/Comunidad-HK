@@ -149,6 +149,75 @@ const SUPABASE_URL = 'https://dqxmcqenqedehlorvwms.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxeG1jcWVucWVkZWhsb3J2d21zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4MzY5ODcsImV4cCI6MjEwMDQxMjk4N30.Njcl2RwJmhs5CudI-um0Aoj0iQPOPRd_jezlkUnVO3A';
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+const HERO_FALLBACK_URL = 'https://images.unsplash.com/photo-1760611656188-8a1289f7dfb9?w=1600&q=80&auto=format&fit=crop';
+let siteSettings = { heroVersion: null };
+let isAdminSession = false;
+
+function heroImageUrl(){
+  if (!siteSettings.heroVersion) return null;
+  return SUPABASE_URL + '/storage/v1/object/public/site-assets/hero-image?v=' + encodeURIComponent(siteSettings.heroVersion);
+}
+
+async function loadSiteSettings(){
+  const { data } = await supabaseClient.from('site_settings').select('*').eq('key', 'hero_image_updated_at').maybeSingle();
+  siteSettings.heroVersion = data ? data.value : null;
+  refreshHeroImageDom();
+}
+
+async function refreshAdminHeroControl(){
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session){ isAdminSession = false; refreshHeroImageDom(); return; }
+  const { data } = await supabaseClient.rpc('is_admin');
+  isAdminSession = !!data;
+  refreshHeroImageDom();
+}
+
+function refreshHeroImageDom(){
+  const img = document.getElementById('hero-image-el');
+  if (img){
+    const url = heroImageUrl();
+    img.src = url || HERO_FALLBACK_URL;
+    const credit = document.getElementById('hero-credit');
+    if (credit) credit.style.display = url ? 'none' : 'block';
+  }
+  const btn = document.getElementById('hero-edit-btn');
+  if (btn) btn.style.display = isAdminSession ? 'block' : 'none';
+}
+
+async function uploadHeroFile(f){
+  if (!f) return;
+  const msg = document.getElementById('hero-upload-msg');
+  msg.style.display = 'block';
+  msg.textContent = 'Subiendo...';
+  const { error: upErr } = await supabaseClient.storage.from('site-assets').upload('hero-image', f, { upsert: true, contentType: f.type });
+  if (upErr){
+    msg.textContent = 'Error: ' + upErr.message;
+    setTimeout(() => { msg.style.display = 'none'; }, 4000);
+    return;
+  }
+  const version = Date.now().toString();
+  const { error: setErr } = await supabaseClient.from('site_settings').upsert({ key: 'hero_image_updated_at', value: version, updated_at: new Date().toISOString() });
+  if (setErr){
+    msg.textContent = 'Foto subida, pero no se guardó la referencia: ' + setErr.message;
+    setTimeout(() => { msg.style.display = 'none'; }, 5000);
+    return;
+  }
+  siteSettings.heroVersion = version;
+  refreshHeroImageDom();
+  msg.textContent = 'Listo, foto actualizada para todos los visitantes.';
+  setTimeout(() => { msg.style.display = 'none'; }, 3000);
+}
+
+function handleHeroFileChange(e){
+  uploadHeroFile(e.target.files && e.target.files[0]);
+  e.target.value = '';
+}
+
+function handleHeroFileDrop(e){
+  if (!isAdminSession) return;
+  uploadHeroFile(e.dataTransfer.files && e.dataTransfer.files[0]);
+}
+
 const CATEGORIES = ['Currículum','Entrevistas','Liderazgo','Desarrollo de carrera','Transición laboral','Mercado laboral','Negociación y renta'];
 const AREAS_INTERES = ['Outplacement','Coaching','Búsqueda laboral','Transición laboral'];
 
@@ -295,10 +364,9 @@ function resourceCard(item, cardClass, titleSize){
 function renderLanding(){
   const featured = FEATURED_IDS.map(id => RESOURCES.find(r => r.id === id));
   const BENEFITS = [
-    {icon:'user', title:'Mantén tu perfil actualizado', desc:'Comparte tu experiencia profesional y mantén tu información disponible para futuros procesos de búsqueda.'},
-    {icon:'calendar', title:'Participa en actividades exclusivas', desc:'Charlas, webinars y conversaciones con expertos en empleabilidad, liderazgo y desarrollo profesional.'},
-    {icon:'chat', title:'Mantente conectado con HK', desc:'Conoceremos mejor tu experiencia profesional y podremos contactarte cuando existan oportunidades alineadas con tu perfil.'},
-    {icon:'growth', title:'Crece junto a nuestra comunidad', desc:'Recibe invitaciones a iniciativas orientadas al desarrollo de carrera y mantente cerca del mercado laboral.'},
+    {icon:'user', title:'Ingresa a nuestra base de datos', desc:'Comparte tu experiencia.'},
+    {icon:'calendar', title:'Participa en actividades exclusivas', desc:'Al formar parte de la comunidad podrás participar de charlas y conversaciones con expertos.'},
+    {icon:'chat', title:'Mantente conectado con HK Human Capital', desc:'Estarás en el radar de nuestras consultoras para futuras oportunidades.'},
   ];
   const BENEFIT_ICONS = {
     user: '<circle cx="12" cy="8" r="3.5"/><path d="M4.5 20c1.4-3.8 4.4-6 7.5-6s6.1 2.2 7.5 6"/>',
@@ -320,12 +388,16 @@ function renderLanding(){
         <button class="hk-gold-btn-outline" onclick="goLibrary()" style="background:transparent;color:#24262b;border:1px solid #d8d2c6;padding:16px 30px;border-radius:4px;font-weight:700;font-size:14px;letter-spacing:0.03em;text-transform:uppercase;cursor:pointer">Explorar recursos</button>
       </div>
     </div>
-    <div style="flex:1 1 480px;min-width:320px;align-self:stretch;position:relative">
-      <image-slot id="hero-image" onclick="this.openFilePicker()" title="Haz clic para cambiar la foto" shape="rect" src="https://images.unsplash.com/photo-1760611656188-8a1289f7dfb9?w=1600&amp;q=80&amp;auto=format&amp;fit=crop" credit="Photo by David Kristianto on Unsplash" credit-href="https://unsplash.com/@davidkristianto" placeholder="Imagen: espacio ejecutivo HK" style="width:100%;height:100%;min-height:420px;display:block;cursor:pointer"></image-slot>
+    <div id="hero-image-container" style="flex:1 1 480px;min-width:320px;align-self:stretch;position:relative" ondragover="event.preventDefault()" ondrop="event.preventDefault();handleHeroFileDrop(event)">
+      <img id="hero-image-el" src="${heroImageUrl() || HERO_FALLBACK_URL}" alt="" style="width:100%;height:100%;min-height:420px;object-fit:cover;display:block" />
       <div style="position:absolute;inset:0;pointer-events:none;z-index:1;background:
         linear-gradient(90deg, #fdece0 0%, #fdece0 6%, rgba(253,236,224,0.7) 18%, rgba(253,236,224,0.48) 30%, rgba(253,236,224,0.25) 42%, rgba(253,236,224,0.08) 55%, rgba(253,236,224,0) 66%),
         linear-gradient(180deg, rgba(253,236,224,0.2) 0%, rgba(253,236,224,0) 10%),
         linear-gradient(0deg, rgba(253,236,224,0.2) 0%, rgba(253,236,224,0) 10%)"></div>
+      <p id="hero-credit" style="display:${heroImageUrl() ? 'none' : 'block'};position:absolute;bottom:10px;left:10px;z-index:2;font-size:11px;color:rgba(255,255,255,0.9);background:rgba(0,0,0,0.35);padding:3px 8px;border-radius:4px;margin:0">Photo by <a href="https://unsplash.com/@davidkristianto" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline">David Kristianto</a> on <a href="https://unsplash.com/" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline">Unsplash</a></p>
+      <button id="hero-edit-btn" onclick="document.getElementById('hero-file-input').click()" style="display:${isAdminSession ? 'block' : 'none'};position:absolute;bottom:16px;right:16px;z-index:2;background:rgba(36,38,43,0.75);color:#fff;border:none;padding:10px 16px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer">Cambiar foto</button>
+      <input type="file" id="hero-file-input" accept="image/*" style="display:none" onchange="handleHeroFileChange(event)" />
+      <p id="hero-upload-msg" style="display:none;position:absolute;top:16px;right:16px;z-index:2;background:rgba(36,38,43,0.85);color:#fff;padding:8px 14px;border-radius:6px;font-size:12px;max-width:220px"></p>
     </div>
   </section>
   </div>
@@ -903,9 +975,12 @@ function renderMain(){
 
 supabaseClient.auth.onAuthStateChange((_event, _session) => {
   if (state.page === 'admin') renderAdminAsync();
+  refreshAdminHeroControl();
 });
 
 renderMain();
+loadSiteSettings();
+refreshAdminHeroControl();
 </script>
 </body>
 </html>
