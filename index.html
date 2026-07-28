@@ -801,12 +801,51 @@ function cvLinksHtml(r, cvUrls, stopClick){
   return '<span style="color:#9a958a">Sin CV</span>';
 }
 
+function pendingCoaching(r){ return !!r.quiere_info_coaching && !r.coaching_contactado; }
+function pendingOutplacement(r){ return !!r.quiere_info_outplacement && !r.outplacement_contactado; }
+
 function infoRequestLabels(r){
   const labels = [];
-  if (r.quiere_info_coaching) labels.push('Coaching');
-  if (r.quiere_info_outplacement) labels.push('Outplacement');
+  if (pendingCoaching(r)) labels.push('Coaching');
+  if (pendingOutplacement(r)) labels.push('Outplacement');
   if (r.quiere_info_otro) labels.push('Otro');
   return labels;
+}
+
+async function markContacted(id, program){
+  const field = program === 'coaching' ? 'coaching_contactado' : 'outplacement_contactado';
+  const { error } = await supabaseClient.from('inscripciones').update({ [field]: true }).eq('id', id);
+  if (error){
+    const msgEl = document.getElementById('candidate-detail-msg');
+    if (msgEl){ msgEl.style.display = 'block'; msgEl.textContent = 'No se pudo actualizar: ' + error.message; }
+    return;
+  }
+  const r = adminListData.inscripciones.find(x => x.id === id);
+  if (r) r[field] = true;
+  closeCandidateDetail();
+  renderAdminList();
+  renderContactQueues();
+}
+
+function contactQueueItemHtml(r){
+  return `
+    <div onclick="openCandidateDetail('${r.id}')" style="cursor:pointer;padding:10px 12px;border-radius:6px;background:#fff;border:1px solid #ece7dd;margin-bottom:8px;transition:all 0.2s ease" class="hk-card-hover">
+      <p style="font-size:13px;font-weight:600;color:#24262b;margin:0">${esc(r.nombre)} ${esc(r.apellido)}</p>
+      <p style="font-size:11px;color:#9a958a;margin:2px 0 0">${new Date(r.created_at).toLocaleDateString('es-CL')}</p>
+    </div>`;
+}
+
+function renderContactQueues(){
+  const coachingList = adminListData.inscripciones.filter(pendingCoaching);
+  const outplacementList = adminListData.inscripciones.filter(pendingOutplacement);
+  const coachingListEl = document.getElementById('coaching-queue-list');
+  const outplacementListEl = document.getElementById('outplacement-queue-list');
+  if (coachingListEl) coachingListEl.innerHTML = coachingList.length ? coachingList.map(contactQueueItemHtml).join('') : `<p style="font-size:12px;color:#9a958a;margin:0">Nadie pendiente.</p>`;
+  if (outplacementListEl) outplacementListEl.innerHTML = outplacementList.length ? outplacementList.map(contactQueueItemHtml).join('') : `<p style="font-size:12px;color:#9a958a;margin:0">Nadie pendiente.</p>`;
+  const coachingCountEl = document.getElementById('coaching-queue-count');
+  const outplacementCountEl = document.getElementById('outplacement-queue-count');
+  if (coachingCountEl) coachingCountEl.textContent = coachingList.length;
+  if (outplacementCountEl) outplacementCountEl.textContent = outplacementList.length;
 }
 
 function personCardHtml(r, cvUrls){
@@ -866,6 +905,12 @@ function openCandidateDetail(id){
     ${r.quiere_info_otro ? detailField('Detalle de "otro"', esc(r.quiere_info_otro)) : ''}
     ${detailField('Quiere recibir comunicaciones', r.acepta_comunicaciones ? 'Sí' : 'No')}
     ${detailField('CV', cvLinksHtml(r, adminListData.cvUrls, false))}
+    ${(pendingCoaching(r) || pendingOutplacement(r)) ? `
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid #f1ede5">
+        ${pendingCoaching(r) ? `<button onclick="markContacted('${r.id}','coaching')" style="background:#1d6f9c;color:#fff;border:none;padding:12px;border-radius:4px;font-weight:600;font-size:14px;cursor:pointer">Marcar Coaching como contactado</button>` : ''}
+        ${pendingOutplacement(r) ? `<button onclick="markContacted('${r.id}','outplacement')" style="background:#b5601f;color:#fff;border:none;padding:12px;border-radius:4px;font-weight:600;font-size:14px;cursor:pointer">Marcar Outplacement como contactado</button>` : ''}
+      </div>` : ''}
+    <p id="candidate-detail-msg" style="display:none;color:#c0392b;font-size:13px;margin:12px 0 0"></p>
   `;
   document.getElementById('candidate-detail-content').innerHTML = html;
   document.getElementById('candidate-detail-modal').style.display = 'flex';
@@ -984,34 +1029,59 @@ function renderAdminDashboard(email, inscripciones, admins, cvUrls){
   const sorted = sortForAdmin(inscripciones);
   const pendientes = sorted.filter(r => infoRequestLabels(r).length).length;
 
+  const coachingQueue = sorted.filter(pendingCoaching);
+  const outplacementQueue = sorted.filter(pendingOutplacement);
+
   return `
-  <section style="max-width:900px;margin:0 auto;padding:48px 24px 8px;box-sizing:border-box;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px">
-    <div>
-      <h1 style="font-family:'Newsreader',serif;font-size:28px;color:#24262b;margin:0 0 6px;font-weight:500">Comunidad HK · Administración</h1>
-      <p style="color:#767b82;font-size:14px;margin:0">Conectado como ${esc(email)}</p>
-    </div>
-    <div style="display:flex;gap:12px;flex-wrap:wrap">
-      <button onclick="exportInscripcionesExcel()" style="background:#eaf3f8;color:#1d6f9c;border:1px solid #cfe3ee;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer">Exportar Excel</button>
-      <button onclick="openAddAdminModal()" style="background:#fdf1e6;color:#b5601f;border:1px solid #f5d9b8;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer">+ Agregar administrador</button>
-      <button class="hk-btn-outline" onclick="adminLogout()" style="background:transparent;color:#24262b;border:1px solid #d8d2c6;padding:10px 18px;border-radius:4px;font-weight:600;font-size:13px;cursor:pointer">Cerrar sesión</button>
-    </div>
-  </section>
+  <div style="display:flex;gap:24px;max-width:1400px;margin:0 auto;padding:48px 24px 96px;align-items:flex-start;flex-wrap:wrap">
 
-  <section style="max-width:900px;margin:0 auto;padding:20px 24px 4px;box-sizing:border-box">
-    <p style="font-size:13px;font-weight:600;color:#24262b;text-transform:uppercase;letter-spacing:0.04em;margin:0 0 10px">Administradores (${admins.length})</p>
-    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">
-      ${admins.map(a => `<span style="background:#fff;border:1px solid #ece7dd;padding:6px 12px;border-radius:16px;font-size:13px;color:#3f4247">${esc(a.email)}</span>`).join('')}
+    <aside style="flex:1 1 220px;max-width:260px;min-width:200px;order:1">
+      <div style="background:#eaf3f8;border:1px solid #cfe3ee;border-radius:8px;padding:18px;position:sticky;top:24px">
+        <p style="font-size:12px;font-weight:700;color:#1d6f9c;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 4px">Pendientes · Coaching</p>
+        <p style="font-size:28px;font-weight:700;color:#1d6f9c;margin:0 0 14px" id="coaching-queue-count">${coachingQueue.length}</p>
+        <div id="coaching-queue-list">${coachingQueue.length ? coachingQueue.map(contactQueueItemHtml).join('') : `<p style="font-size:12px;color:#9a958a;margin:0">Nadie pendiente.</p>`}</div>
+      </div>
+    </aside>
+
+    <div style="flex:3 1 600px;max-width:900px;margin:0 auto;order:2">
+      <section style="padding:0 0 8px;box-sizing:border-box;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px">
+        <div>
+          <h1 style="font-family:'Newsreader',serif;font-size:28px;color:#24262b;margin:0 0 6px;font-weight:500">Comunidad HK · Administración</h1>
+          <p style="color:#767b82;font-size:14px;margin:0">Conectado como ${esc(email)}</p>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <button onclick="exportInscripcionesExcel()" style="background:#eaf3f8;color:#1d6f9c;border:1px solid #cfe3ee;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer">Exportar Excel</button>
+          <button onclick="openAddAdminModal()" style="background:#fdf1e6;color:#b5601f;border:1px solid #f5d9b8;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer">+ Agregar administrador</button>
+          <button class="hk-btn-outline" onclick="adminLogout()" style="background:transparent;color:#24262b;border:1px solid #d8d2c6;padding:10px 18px;border-radius:4px;font-weight:600;font-size:13px;cursor:pointer">Cerrar sesión</button>
+        </div>
+      </section>
+
+      <section style="padding:20px 0 4px;box-sizing:border-box">
+        <p style="font-size:13px;font-weight:600;color:#24262b;text-transform:uppercase;letter-spacing:0.04em;margin:0 0 10px">Administradores (${admins.length})</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+          ${admins.map(a => `<span style="background:#fff;border:1px solid #ece7dd;padding:6px 12px;border-radius:16px;font-size:13px;color:#3f4247">${esc(a.email)}</span>`).join('')}
+        </div>
+      </section>
+
+      <section style="padding:24px 0 8px;box-sizing:border-box">
+        <input class="hk-input" id="admin-search" oninput="renderAdminList()" type="text" placeholder="Buscar por nombre, cargo, carrera, área de interés..." style="${inputStyle}margin-bottom:8px" />
+        <p id="admin-count" style="font-size:13px;color:#9a958a;margin:0 0 20px">${inscripciones.length} de ${inscripciones.length} inscritos${pendientes ? ' · ' + pendientes + ' esperando contacto' : ''}</p>
+      </section>
+
+      <section id="admin-list" style="padding:0 0 24px;box-sizing:border-box;display:flex;flex-direction:column;gap:16px">
+        ${sorted.length ? sorted.map(r => personCardHtml(r, cvUrls)).join('') : `<p style="padding:32px;text-align:center;color:#767b82">Aún no hay inscritos.</p>`}
+      </section>
     </div>
-  </section>
 
-  <section style="max-width:900px;margin:0 auto;padding:24px 24px 8px;box-sizing:border-box">
-    <input class="hk-input" id="admin-search" oninput="renderAdminList()" type="text" placeholder="Buscar por nombre, cargo, carrera, área de interés..." style="${inputStyle}margin-bottom:8px" />
-    <p id="admin-count" style="font-size:13px;color:#9a958a;margin:0 0 20px">${inscripciones.length} de ${inscripciones.length} inscritos${pendientes ? ' · ' + pendientes + ' esperando contacto' : ''}</p>
-  </section>
+    <aside style="flex:1 1 220px;max-width:260px;min-width:200px;order:3">
+      <div style="background:#fdf1e6;border:1px solid #f5d9b8;border-radius:8px;padding:18px;position:sticky;top:24px">
+        <p style="font-size:12px;font-weight:700;color:#b5601f;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 4px">Pendientes · Outplacement</p>
+        <p style="font-size:28px;font-weight:700;color:#b5601f;margin:0 0 14px" id="outplacement-queue-count">${outplacementQueue.length}</p>
+        <div id="outplacement-queue-list">${outplacementQueue.length ? outplacementQueue.map(contactQueueItemHtml).join('') : `<p style="font-size:12px;color:#9a958a;margin:0">Nadie pendiente.</p>`}</div>
+      </div>
+    </aside>
 
-  <section id="admin-list" style="max-width:900px;margin:0 auto;padding:0 24px 96px;box-sizing:border-box;display:flex;flex-direction:column;gap:16px">
-    ${sorted.length ? sorted.map(r => personCardHtml(r, cvUrls)).join('') : `<p style="padding:32px;text-align:center;color:#767b82">Aún no hay inscritos.</p>`}
-  </section>`;
+  </div>`;
 }
 
 function openAddAdminModal(){
