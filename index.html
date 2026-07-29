@@ -6,7 +6,6 @@
 <title>Comunidad de Talento HK</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,500;0,600;1,400&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<script src="./image-slot.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <style>
@@ -812,7 +811,7 @@ function renderDetail(){
       ${r.slug && isAdminSession ? `<button onclick="openResourceEditModal('${r.slug}')" style="margin-left:auto;background:#fdf1e6;color:#b5601f;border:1px solid #f5d9b8;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer">Editar contenido</button>` : ''}
     </div>
     <h1 style="font-family:'Newsreader',serif;font-size:34px;color:#24262b;margin:0 0 28px;font-weight:500;line-height:1.2">${esc(r.title)}</h1>
-    <image-slot id="detail-cover-${r.id}" shape="rounded" radius="8" placeholder="Imagen de portada del recurso" style="width:100%;height:340px;margin-bottom:36px"></image-slot>
+    ${resourceCoverHtml(r)}
     <p style="font-size:17px;line-height:1.75;color:#3f4247;margin:0 0 20px;white-space:pre-line">${esc(r.bodyOne)}</p>
     <p style="font-size:17px;line-height:1.75;color:#3f4247;margin:0 0 32px;white-space:pre-line">${esc(r.bodyTwo)}</p>
     ${r.downloadable ? `<button style="background:#24262b;color:#fff;border:none;padding:15px 26px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer;margin-bottom:16px">Descargar ${esc(r.type)}</button>` : ''}
@@ -829,6 +828,60 @@ function renderDetail(){
         </div>`).join('')}
     </div>
   </section>` : ''}`;
+}
+
+function resourceCoverUrl(r){
+  if (!r.slug || !r.coverUpdatedAt) return null;
+  return SUPABASE_URL + '/storage/v1/object/public/site-assets/cover-' + r.slug + '?v=' + encodeURIComponent(r.coverUpdatedAt);
+}
+
+function resourceCoverHtml(r){
+  const url = resourceCoverUrl(r);
+  const controlId = r.slug || r.id;
+  return `
+  <div id="resource-cover-${controlId}" style="position:relative;width:100%;height:340px;margin-bottom:36px;border-radius:8px;overflow:hidden;background:linear-gradient(135deg,#fdece0 0%,#faf1e7 100%);border:1px solid #ece7dd" ondragover="event.preventDefault()" ondrop="event.preventDefault();handleResourceCoverFileDrop(event,'${r.slug||''}')">
+    ${url
+      ? `<img src="${url}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block" />`
+      : `<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#9a958a;font-size:14px;gap:8px">
+           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#9a958a" stroke-width="1.5"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10.5" r="1.5"/><path d="M21 15l-5-5-9 9"/></svg>
+           <span>Imagen de portada del recurso</span>
+         </div>`}
+    ${r.slug && isAdminSession ? `
+      <button onclick="document.getElementById('cover-file-input-${r.slug}').click()" style="position:absolute;bottom:16px;right:16px;z-index:2;background:rgba(36,38,43,0.75);color:#fff;border:none;padding:10px 16px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer">Cambiar foto</button>
+      <input type="file" id="cover-file-input-${r.slug}" accept="image/*" style="display:none" onchange="handleResourceCoverFileChange(event,'${r.slug}')" />
+      <p id="cover-upload-msg-${r.slug}" style="display:none;position:absolute;top:16px;right:16px;z-index:2;background:rgba(36,38,43,0.85);color:#fff;padding:8px 14px;border-radius:6px;font-size:12px;max-width:220px"></p>
+    ` : ''}
+  </div>`;
+}
+
+async function uploadResourceCoverFile(slug, f){
+  if (!f || !slug) return;
+  const msg = document.getElementById('cover-upload-msg-' + slug);
+  if (msg){ msg.style.display = 'block'; msg.textContent = 'Subiendo...'; }
+  const { error: upErr } = await supabaseClient.storage.from('site-assets').upload('cover-' + slug, f, { upsert: true, contentType: f.type });
+  if (upErr){
+    if (msg){ msg.textContent = 'Error: ' + upErr.message; setTimeout(() => { if (msg) msg.style.display = 'none'; }, 4000); }
+    return;
+  }
+  const version = new Date().toISOString();
+  const { error: setErr } = await supabaseClient.from('resource_content').update({ cover_updated_at: version }).eq('slug', slug);
+  if (setErr){
+    if (msg){ msg.textContent = 'Foto subida, pero no se guardó la referencia: ' + setErr.message; setTimeout(() => { if (msg) msg.style.display = 'none'; }, 5000); }
+    return;
+  }
+  const r = RESOURCES_GENERAL.find(x => x.slug === slug);
+  if (r) r.coverUpdatedAt = version;
+  renderMain();
+}
+
+function handleResourceCoverFileChange(e, slug){
+  uploadResourceCoverFile(slug, e.target.files && e.target.files[0]);
+  e.target.value = '';
+}
+
+function handleResourceCoverFileDrop(e, slug){
+  if (!isAdminSession || !slug) return;
+  uploadResourceCoverFile(slug, e.dataTransfer.files && e.dataTransfer.files[0]);
 }
 
 let currentEditingSlug = null;
@@ -879,6 +932,7 @@ async function loadResourceContentOverrides(){
     const r = RESOURCES_GENERAL.find(x => x.slug === row.slug);
     if (r){
       r.title = row.title; r.desc = row.desc_text; r.bodyOne = row.body_one; r.bodyTwo = row.body_two;
+      r.coverUpdatedAt = row.cover_updated_at;
       changed = true;
     }
   });
