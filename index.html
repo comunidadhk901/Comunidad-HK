@@ -154,6 +154,13 @@
     <textarea id="redit-desc" rows="2" style="width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;margin-bottom:16px;resize:vertical;font-family:'Public Sans',sans-serif"></textarea>
     <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Cuerpo</label>
     <textarea id="redit-body1" rows="10" style="width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;margin-bottom:16px;resize:vertical;font-family:'Public Sans',sans-serif"></textarea>
+    <div style="border-top:1px solid #f1ede5;padding-top:16px;margin-bottom:16px">
+      <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Archivo descargable (PDF o Word, opcional)</label>
+      <input type="file" id="redit-file" accept="application/pdf,.doc,.docx" style="width:100%;font-size:14px;margin-bottom:6px" />
+      <p id="redit-file-current" style="font-size:12px;color:#767b82;margin:0 0 16px"></p>
+      <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">O link externo (si no subes archivo)</label>
+      <input class="hk-input" id="redit-url" type="text" placeholder="https://..." style="width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b" />
+    </div>
     <button onclick="saveResourceEdit()" style="width:100%;background:#E17B2F;color:#fff;border:none;padding:14px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Guardar</button>
     <p id="redit-msg" style="font-size:13px;margin:14px 0 0;display:none"></p>
   </div>
@@ -811,7 +818,7 @@ function renderDetail(){
     <h1 style="font-family:'Newsreader',serif;font-size:34px;color:#24262b;margin:0 0 28px;font-weight:500;line-height:1.2">${esc(r.title)}</h1>
     ${resourceCoverHtml(r)}
     <p style="font-size:17px;line-height:1.75;color:#3f4247;margin:0 0 32px;white-space:pre-line">${esc([r.bodyOne, r.bodyTwo].filter(Boolean).join('\n\n'))}</p>
-    ${r.downloadable ? `<button style="background:#24262b;color:#fff;border:none;padding:15px 26px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer;margin-bottom:16px">Descargar ${esc(r.type)}</button>` : ''}
+    ${resourceDownloadHtml(r)}
   </section>
   ${related.length ? `
   <section style="max-width:760px;margin:0 auto;padding:32px 24px 96px;border-top:1px solid #ece7dd;box-sizing:border-box">
@@ -830,6 +837,22 @@ function renderDetail(){
 function resourceCoverUrl(r){
   if (!r.slug || !r.coverUpdatedAt) return null;
   return SUPABASE_URL + '/storage/v1/object/public/site-assets/cover-' + r.slug + '?v=' + encodeURIComponent(r.coverUpdatedAt);
+}
+
+function resourceFileUrl(r){
+  if (!r.slug || !r.fileUpdatedAt) return null;
+  return SUPABASE_URL + '/storage/v1/object/public/site-assets/guide-' + r.slug + '?v=' + encodeURIComponent(r.fileUpdatedAt);
+}
+
+function resourceDownloadHtml(r){
+  const fileUrl = resourceFileUrl(r);
+  if (fileUrl){
+    return `<a href="${fileUrl}" download="${esc(r.fileName || 'guia.pdf')}" style="display:inline-block;text-decoration:none;background:#24262b;color:#fff;border:none;padding:15px 26px;border-radius:4px;font-weight:600;font-size:15px;margin-bottom:16px">Descargar Guía</a>`;
+  }
+  if (r.externalUrl){
+    return `<a href="${esc(r.externalUrl)}" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none;background:#24262b;color:#fff;border:none;padding:15px 26px;border-radius:4px;font-weight:600;font-size:15px;margin-bottom:16px">Ver más →</a>`;
+  }
+  return '';
 }
 
 function resourceCoverHtml(r){
@@ -891,6 +914,9 @@ function openResourceEditModal(slug){
   document.getElementById('redit-title').value = r.title;
   document.getElementById('redit-desc').value = r.desc;
   document.getElementById('redit-body1').value = r.bodyOne || '';
+  document.getElementById('redit-file').value = '';
+  document.getElementById('redit-file-current').textContent = r.fileName ? ('Archivo actual: ' + r.fileName) : 'Sin archivo adjunto todavía.';
+  document.getElementById('redit-url').value = r.externalUrl || '';
   document.getElementById('redit-msg').style.display = 'none';
   document.getElementById('resource-edit-modal').style.display = 'flex';
 }
@@ -903,11 +929,28 @@ async function saveResourceEdit(){
   const title = document.getElementById('redit-title').value.trim();
   const desc = document.getElementById('redit-desc').value.trim();
   const body = document.getElementById('redit-body1').value.trim();
+  const externalUrl = document.getElementById('redit-url').value.trim();
+  const file = document.getElementById('redit-file').files[0];
   const msg = document.getElementById('redit-msg');
   if (!title || !desc){ return; }
-  const { error } = await supabaseClient.from('resource_content').upsert({
-    slug: currentEditingSlug, title, desc_text: desc, body_one: body, body_two: null, updated_at: new Date().toISOString(),
-  });
+
+  const payload = {
+    slug: currentEditingSlug, title, desc_text: desc, body_one: body, body_two: null,
+    external_url: externalUrl || null, updated_at: new Date().toISOString(),
+  };
+
+  if (file){
+    const { error: upErr } = await supabaseClient.storage.from('site-assets').upload('guide-' + currentEditingSlug, file, { upsert: true, contentType: file.type });
+    if (upErr){
+      msg.style.display = 'block'; msg.style.color = '#c0392b';
+      msg.textContent = 'No se pudo subir el archivo: ' + upErr.message;
+      return;
+    }
+    payload.file_updated_at = new Date().toISOString();
+    payload.file_name = file.name;
+  }
+
+  const { error } = await supabaseClient.from('resource_content').upsert(payload);
   if (error){
     msg.style.display = 'block';
     msg.style.color = '#c0392b';
@@ -915,7 +958,10 @@ async function saveResourceEdit(){
     return;
   }
   const r = RESOURCES_GENERAL.find(x => x.slug === currentEditingSlug);
-  if (r){ r.title = title; r.desc = desc; r.bodyOne = body; r.bodyTwo = ''; }
+  if (r){
+    r.title = title; r.desc = desc; r.bodyOne = body; r.bodyTwo = ''; r.externalUrl = externalUrl || null;
+    if (file){ r.fileUpdatedAt = payload.file_updated_at; r.fileName = payload.file_name; }
+  }
   closeResourceEditModal();
   renderMain();
 }
@@ -931,6 +977,9 @@ async function loadResourceContentOverrides(){
       r.bodyOne = row.body_two ? [row.body_one, row.body_two].filter(Boolean).join('\n\n') : row.body_one;
       r.bodyTwo = '';
       r.coverUpdatedAt = row.cover_updated_at;
+      r.fileUpdatedAt = row.file_updated_at;
+      r.fileName = row.file_name;
+      r.externalUrl = row.external_url;
       changed = true;
     }
   });
