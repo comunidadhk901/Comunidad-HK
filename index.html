@@ -223,33 +223,27 @@ const CATEGORIES = ['Fase 1','Fase 2','Fase 3'];
 const AREAS_INTERES = ['Outplacement','Coaching','Búsqueda laboral','Transición laboral'];
 
 const RESOURCES = [
-  {id:1, category:'Fase 1', type:'Encuentro 1', title:'Bienvenida y diagnóstico personal', desc:'El punto de partida: cómo llegaste aquí, cómo estás y qué quieres que sea diferente en tu próxima etapa profesional.', downloadable:false,
-    bodyOne:'El punto de partida. En este primer encuentro el foco está en ti: cómo llegaste aquí, cómo estás y qué quieres que sea diferente en tu próxima etapa profesional.',
-    bodyTwo:'Lo que te llevas: inventario personal de fortalezas y una meta orientadora para el proceso.'},
-  {id:2, category:'Fase 1', type:'Encuentro 2', title:'Historia personal + Debriefing ELI', desc:'Exploramos los resultados de tu Assessment de Energía ELI y los conectamos con tu historia profesional.', downloadable:false,
-    bodyOne:'Exploramos los resultados de tu Assessment de Energía ELI: cómo operas en un buen día, cómo reaccionas bajo presión y qué dice eso de tu liderazgo. Conectamos esos patrones con la historia profesional que has construido hasta hoy.',
-    bodyTwo:'Lo que te llevas: comprensión clara de tu perfil energético y el inicio de tu nueva narrativa profesional.'},
-  {id:3, category:'Fase 1', type:'Encuentro 3', title:'Marca personal completa', desc:'Construimos tu presencia de mercado: CV de alto impacto, LinkedIn optimizado, propuesta de valor y elevator pitch.', downloadable:false,
-    bodyOne:'Con la narrativa como base, construimos tu presencia de mercado: CV de alto impacto con logros cuantificados, LinkedIn optimizado, propuesta de valor clara y elevator pitch auténtico.',
-    bodyTwo:'Lo que te llevas: CV reescrito, titular y extracto de LinkedIn actualizados, propuesta de valor en 3 líneas, pitch grabado en video.'},
-  {id:4, category:'Fase 2', type:'Encuentro 4', title:'Exploración del mercado laboral', desc:'Del mercado visible al mercado oculto: mapa de empresas objetivo y activación de tu red de contactos.', downloadable:false,
-    bodyOne:'Cambiamos la lógica de búsqueda: del mercado visible al mercado oculto, donde está la mayoría de las oportunidades para perfiles senior. Diseñamos tu mapa de empresas objetivo y activamos tu red de contactos.',
-    bodyTwo:'Lo que te llevas: mapa de empresas en 3 círculos (sueño, objetivo, oportunidad) y listado de contactos en 4 categorías.'},
-  {id:5, category:'Fase 2', type:'Encuentro 5', title:'Mensajes y plan de búsqueda semanal', desc:'Revisión práctica de tus mensajes y ajuste de tu plan de búsqueda semanal.', downloadable:false,
-    bodyOne:'Reunión práctica. Revisamos los mensajes que enviaste, ajustamos los que no funcionaron y confirmamos que tienes un plan semanal estructurado y sostenible.',
-    bodyTwo:'Lo que te llevas: plantillas de mensajes ajustadas y plan semanal con horario fijo y métricas de seguimiento.'},
-  {id:6, category:'Fase 3', type:'Encuentro 6', title:'Entrevistas I — Energía y presencia', desc:'Todo lo que comunicas antes de hablar: energía, postura, tono de voz y autenticidad en entrevista.', downloadable:false,
-    bodyOne:'La impresión se forma en los primeros segundos. Trabajamos todo lo que comunicas antes de hablar: energía, postura, tono de voz y autenticidad. Preparamos ejemplos concretos para las competencias más valoradas.',
-    bodyTwo:'Lo que te llevas: tabla de evaluación de presencia física y 5 ejemplos STAR preparados.'},
-  {id:7, category:'Fase 3', type:'Encuentro 7', title:'Entrevistas II — STAR y negociación', desc:'Role-play de entrevista, preguntas difíciles y estrategia de negociación salarial.', downloadable:false,
-    bodyOne:'Role-play completo de entrevista con feedback directo. Trabajamos las preguntas difíciles y la negociación salarial y de paquete ejecutivo.',
-    bodyTwo:'Lo que te llevas: respuestas pulidas a las preguntas más difíciles y banda salarial definida con datos de mercado.'},
-  {id:8, category:'Fase 3', type:'Encuentro 8', title:'Plan de acción y cierre del proceso', desc:'Integramos todo lo trabajado en un plan SMART con calendario de 90 días para iniciar la búsqueda autónoma.', downloadable:false,
-    bodyOne:'El cierre del proceso y el inicio de la búsqueda autónoma. Integramos todo lo trabajado, construimos tu plan SMART con calendario de 90 días y cerramos con un reconocimiento real del camino recorrido.',
-    bodyTwo:'Lo que te llevas: plan SMART completo con 3 compromisos, calendario de 12 semanas y plan de bienestar.'},
+  {id:1, category:'Fase 1', type:'Módulo 1', title:'Autoconocimiento y definición de objetivos', desc:'Identifica tus fortalezas, estilo de liderazgo y el rumbo de tu próxima etapa profesional.', downloadable:false,
+    bodyOne:'Identifica tus fortalezas, estilo de liderazgo y el rumbo de tu próxima etapa profesional.',
+    bodyTwo:'Este módulo es parte del acompañamiento personalizado del Programa de Outplacement HK.'},
+  {id:2, category:'Fase 1', type:'Módulo 2', title:'Construcción de tu marca personal', desc:'Desarrolla un CV de alto impacto, optimiza tu LinkedIn y define una propuesta de valor clara.', downloadable:false,
+    bodyOne:'Desarrolla un CV de alto impacto, optimiza tu LinkedIn y define una propuesta de valor clara.',
+    bodyTwo:'Este módulo es parte del acompañamiento personalizado del Programa de Outplacement HK.'},
+  {id:3, category:'Fase 2', type:'Módulo 3', title:'Estrategia de búsqueda laboral', desc:'Crea un mapa de empresas objetivo y activa tu red de contactos para acceder al mercado visible y oculto.', downloadable:false,
+    bodyOne:'Crea un mapa de empresas objetivo y activa tu red de contactos para acceder al mercado visible y oculto.',
+    bodyTwo:'Este módulo es parte del acompañamiento personalizado del Programa de Outplacement HK.'},
+  {id:4, category:'Fase 2', type:'Módulo 4', title:'Networking y posicionamiento', desc:'Aprende a generar conversaciones efectivas y organiza un plan de búsqueda con seguimiento semanal.', downloadable:false,
+    bodyOne:'Aprende a generar conversaciones efectivas y organiza un plan de búsqueda con seguimiento semanal.',
+    bodyTwo:'Este módulo es parte del acompañamiento personalizado del Programa de Outplacement HK.'},
+  {id:5, category:'Fase 3', type:'Módulo 5', title:'Preparación para entrevistas y negociación', desc:'Fortalece tu presencia, prepara respuestas con metodología STAR y define tu estrategia de negociación.', downloadable:false,
+    bodyOne:'Fortalece tu presencia, prepara respuestas con metodología STAR y define tu estrategia de negociación.',
+    bodyTwo:'Este módulo es parte del acompañamiento personalizado del Programa de Outplacement HK.'},
+  {id:6, category:'Fase 3', type:'Módulo 6', title:'Plan de acción de 90 días', desc:'Termina el proceso con un plan SMART, métricas concretas y herramientas para gestionar tu búsqueda de manera autónoma.', downloadable:false,
+    bodyOne:'Termina el proceso con un plan SMART, métricas concretas y herramientas para gestionar tu búsqueda de manera autónoma.',
+    bodyTwo:'Este módulo es parte del acompañamiento personalizado del Programa de Outplacement HK.'},
 ];
 
-const FEATURED_IDS = [1,3,6,8];
+const FEATURED_IDS = [1,2,3,4,5,6];
 
 const state = {
   page: 'landing',
