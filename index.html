@@ -219,31 +219,83 @@ function handleHeroFileDrop(e){
   uploadHeroFile(e.dataTransfer.files && e.dataTransfer.files[0]);
 }
 
-const CATEGORIES = ['Fase 1','Fase 2','Fase 3'];
+const CATEGORIES_GENERAL = ['Currículum','Entrevistas','Liderazgo','Desarrollo de carrera','Transición laboral','Mercado laboral','Negociación y renta'];
 const AREAS_INTERES = ['Outplacement','Coaching','Búsqueda laboral','Transición laboral'];
 
-const RESOURCES = [
-  {id:1, category:'Fase 1', type:'Módulo 1', title:'Autoconocimiento y definición de objetivos', desc:'Identifica tus fortalezas, estilo de liderazgo y el rumbo de tu próxima etapa profesional.', downloadable:false,
-    bodyOne:'Identifica tus fortalezas, estilo de liderazgo y el rumbo de tu próxima etapa profesional.',
-    bodyTwo:'Este módulo es parte del acompañamiento personalizado del Programa de Outplacement HK.'},
-  {id:2, category:'Fase 1', type:'Módulo 2', title:'Construcción de tu marca personal', desc:'Desarrolla un CV de alto impacto, optimiza tu LinkedIn y define una propuesta de valor clara.', downloadable:false,
-    bodyOne:'Desarrolla un CV de alto impacto, optimiza tu LinkedIn y define una propuesta de valor clara.',
-    bodyTwo:'Este módulo es parte del acompañamiento personalizado del Programa de Outplacement HK.'},
-  {id:3, category:'Fase 2', type:'Módulo 3', title:'Estrategia de búsqueda laboral', desc:'Crea un mapa de empresas objetivo y activa tu red de contactos para acceder al mercado visible y oculto.', downloadable:false,
-    bodyOne:'Crea un mapa de empresas objetivo y activa tu red de contactos para acceder al mercado visible y oculto.',
-    bodyTwo:'Este módulo es parte del acompañamiento personalizado del Programa de Outplacement HK.'},
-  {id:4, category:'Fase 2', type:'Módulo 4', title:'Networking y posicionamiento', desc:'Aprende a generar conversaciones efectivas y organiza un plan de búsqueda con seguimiento semanal.', downloadable:false,
-    bodyOne:'Aprende a generar conversaciones efectivas y organiza un plan de búsqueda con seguimiento semanal.',
-    bodyTwo:'Este módulo es parte del acompañamiento personalizado del Programa de Outplacement HK.'},
-  {id:5, category:'Fase 3', type:'Módulo 5', title:'Preparación para entrevistas y negociación', desc:'Fortalece tu presencia, prepara respuestas con metodología STAR y define tu estrategia de negociación.', downloadable:false,
-    bodyOne:'Fortalece tu presencia, prepara respuestas con metodología STAR y define tu estrategia de negociación.',
-    bodyTwo:'Este módulo es parte del acompañamiento personalizado del Programa de Outplacement HK.'},
-  {id:6, category:'Fase 3', type:'Módulo 6', title:'Plan de acción de 90 días', desc:'Termina el proceso con un plan SMART, métricas concretas y herramientas para gestionar tu búsqueda de manera autónoma.', downloadable:false,
-    bodyOne:'Termina el proceso con un plan SMART, métricas concretas y herramientas para gestionar tu búsqueda de manera autónoma.',
-    bodyTwo:'Este módulo es parte del acompañamiento personalizado del Programa de Outplacement HK.'},
+const PROGRAMS = [
+  {
+    title: 'Recursos',
+    desc: 'Artículos, videos, guías y plantillas para acompañarte en cada etapa de tu desarrollo profesional.',
+    action: "goLibrary()",
+    icon: '<path d="M4 5.5h16v13H4z"/><path d="M4 9.5h16"/><path d="M8 5.5v4"/>',
+  },
+  {
+    title: 'Programa Outplacement',
+    desc: 'Acompañamiento estructurado en tu proceso de transición profesional, encuentro a encuentro.',
+    action: "goTo('outplacement')",
+    icon: '<path d="M4 17l5-5 4 4 7-8"/><path d="M15 8h5v5"/>',
+  },
+  {
+    title: 'Coaching Ejecutivo',
+    desc: 'Desarrollo de liderazgo y habilidades directivas con metodologías de coaching profesional.',
+    action: "goTo('coaching')",
+    icon: '<circle cx="12" cy="8" r="3.5"/><path d="M4.5 20c1.4-3.8 4.4-6 7.5-6s6.1 2.2 7.5 6"/>',
+  },
 ];
 
-const FEATURED_IDS = [1,2,3,4,5,6];
+const RESOURCES_GENERAL = [
+  {id:1, category:'Entrevistas', type:'Artículo', title:'Cómo preparar una entrevista ejecutiva', desc:'Claves para presentar tu trayectoria con seguridad frente a un directorio o comité ejecutivo.', downloadable:false,
+    bodyOne:'Una entrevista ejecutiva evalúa criterio y visión, no solo experiencia técnica. Prepara ejemplos concretos de decisiones que hayas tomado bajo presión y sus resultados medibles.',
+    bodyTwo:'Investiga a fondo a la organización y a quienes te entrevistarán. Llega con preguntas que demuestren pensamiento estratégico, no solo interés en el cargo.'},
+  {id:2, category:'Currículum', type:'Guía', title:'Cómo actualizar tu CV', desc:'Una guía práctica para ordenar tu experiencia y destacar logros relevantes para roles de liderazgo.', downloadable:true,
+    bodyOne:'Un CV ejecutivo debe priorizar resultados por sobre funciones. Cuantifica el impacto de tu gestión: crecimiento, eficiencia, equipos liderados.',
+    bodyTwo:'Mantén un formato limpio y de una a dos páginas. Actualízalo cada seis meses, incluso si no estás buscando un cambio activamente.'},
+  {id:3, category:'Transición laboral', type:'Artículo', title:'Cómo enfrentar una transición laboral', desc:'Recomendaciones para gestionar el cambio de rol o industria con claridad y confianza.', downloadable:false,
+    bodyOne:'Toda transición comienza con un diagnóstico honesto: qué buscas, qué estás dispuesto a soltar y qué te hace un candidato diferenciado.',
+    bodyTwo:'Activa tu red profesional de forma genuina y ordenada. La mayoría de los movimientos ejecutivos surgen de relaciones de confianza, no de postulaciones abiertas.'},
+  {id:4, category:'Mercado laboral', type:'Artículo', title:'Tendencias del mercado laboral', desc:'Un panorama de las habilidades y perfiles con mayor demanda en el mercado ejecutivo chileno.', downloadable:false,
+    bodyOne:'Las organizaciones buscan cada vez más perfiles con capacidad de liderar transformación y ambigüedad, más allá del dominio técnico.',
+    bodyTwo:'La movilidad entre industrias ha aumentado: la experiencia funcional profunda pesa más que la trayectoria dentro de un solo sector.'},
+  {id:5, category:'Liderazgo', type:'Video', title:'Desarrollo de liderazgo', desc:'Una conversación breve sobre cómo evolucionar de gerente a líder de alto impacto.', downloadable:false,
+    bodyOne:'Liderar equipos en contextos complejos exige pasar de dar respuestas a formular las preguntas correctas.',
+    bodyTwo:'El liderazgo se desarrolla con retroalimentación honesta y práctica deliberada, no solo con la experiencia acumulada.'},
+  {id:6, category:'Negociación y renta', type:'Guía', title:'Negociación de renta', desc:'Cómo prepararte para conversar condiciones de renta con seguridad y criterio.', downloadable:true,
+    bodyOne:'Antes de negociar, define tu rango de referencia con datos de mercado actualizados, no solo con tu expectativa personal.',
+    bodyTwo:'Considera la propuesta de forma integral: renta fija, variable, beneficios y proyección, no solo el número base.'},
+  {id:7, category:'Currículum', type:'Plantilla', title:'Plantilla de CV ejecutivo', desc:'Un formato editable para ordenar tu trayectoria de forma clara y profesional.', downloadable:true,
+    bodyOne:'Esta plantilla organiza tu experiencia por impacto y resultados, siguiendo el estándar que utilizan los procesos de executive search.',
+    bodyTwo:'Incluye secciones para logros cuantificables, formación y referencias, listas para adaptar a tu perfil.'},
+  {id:8, category:'Entrevistas', type:'Video', title:'Preguntas frecuentes en entrevistas de directorio', desc:'Ejemplos de preguntas habituales en procesos de alta dirección y cómo abordarlas.', downloadable:false,
+    bodyOne:'Los comités de búsqueda suelen indagar en decisiones difíciles y en cómo gestionaste sus consecuencias.',
+    bodyTwo:'Responder con estructura —contexto, decisión, resultado— transmite claridad y dominio de tu propia trayectoria.'},
+  {id:9, category:'Liderazgo', type:'Artículo', title:'Liderar equipos en tiempos de incertidumbre', desc:'Principios para sostener la confianza de un equipo durante procesos de cambio.', downloadable:false,
+    bodyOne:'La incertidumbre exige comunicación más frecuente, no menos. La ambigüedad se gestiona con transparencia sobre lo que se sabe y lo que no.',
+    bodyTwo:'Los equipos siguen a líderes que muestran calma y consistencia, incluso cuando no tienen todas las respuestas.'},
+  {id:10, category:'Desarrollo de carrera', type:'Guía', title:'Cómo construir un plan de carrera a 5 años', desc:'Un marco para definir objetivos profesionales de mediano plazo con foco e intención.', downloadable:true,
+    bodyOne:'Un plan de carrera sólido parte de identificar el tipo de impacto y responsabilidad que quieres tener, no solo el cargo al que aspiras.',
+    bodyTwo:'Revisa tu plan cada año: las prioridades cambian, y tu plan de carrera debe evolucionar contigo.'},
+  {id:11, category:'Desarrollo de carrera', type:'Artículo', title:'Mentoring: por qué todo ejecutivo lo necesita', desc:'El rol del mentoring en la toma de decisiones y el crecimiento profesional sostenido.', downloadable:false,
+    bodyOne:'Contar con un mentor externo a tu organización aporta una mirada sin sesgos internos sobre tus decisiones.',
+    bodyTwo:'El mentoring más valioso no da respuestas: ayuda a formular mejores preguntas sobre tu propio camino.'},
+  {id:12, category:'Transición laboral', type:'Video', title:'Historias de transición: directivos que dieron el salto', desc:'Testimonios sobre decisiones de cambio de industria o de rol en etapas clave de carrera.', downloadable:false,
+    bodyOne:'Quienes han transitado con éxito entre industrias coinciden en algo: prepararon su narrativa antes de buscar el cambio.',
+    bodyTwo:'La transición se vive con menos incertidumbre cuando se apoya en una red de confianza y en asesoría especializada.'},
+  {id:13, category:'Mercado laboral', type:'Plantilla', title:'Checklist: evalúa una oferta laboral', desc:'Una lista de verificación para analizar una propuesta más allá de la renta.', downloadable:true,
+    bodyOne:'Una oferta se evalúa en conjunto: cultura, proyección, equipo, condiciones y alineación con tus objetivos de carrera.',
+    bodyTwo:'Usa este checklist antes de responder a una propuesta, para tomar una decisión informada y sin apuro.'},
+  {id:14, category:'Negociación y renta', type:'Artículo', title:'Beneficios más allá del sueldo: qué negociar', desc:'Elementos de la propuesta total que suelen pasarse por alto en una negociación.', downloadable:false,
+    bodyOne:'Renta variable, bonos de ingreso, flexibilidad y desarrollo también son parte legítima de una negociación.',
+    bodyTwo:'Negociar con transparencia y datos de respaldo fortalece la relación con tu futuro empleador, no la debilita.'},
+];
+
+const RESOURCES_OUTPLACEMENT = [
+  {id:1, category:'Fase 1', type:'Módulo 1', title:'Autoconocimiento y definición de objetivos', desc:'Identifica tus fortalezas, estilo de liderazgo y el rumbo de tu próxima etapa profesional.'},
+  {id:2, category:'Fase 1', type:'Módulo 2', title:'Construcción de tu marca personal', desc:'Desarrolla un CV de alto impacto, optimiza tu LinkedIn y define una propuesta de valor clara.'},
+  {id:3, category:'Fase 2', type:'Módulo 3', title:'Estrategia de búsqueda laboral', desc:'Crea un mapa de empresas objetivo y activa tu red de contactos para acceder al mercado visible y oculto.'},
+  {id:4, category:'Fase 2', type:'Módulo 4', title:'Networking y posicionamiento', desc:'Aprende a generar conversaciones efectivas y organiza un plan de búsqueda con seguimiento semanal.'},
+  {id:5, category:'Fase 3', type:'Módulo 5', title:'Preparación para entrevistas y negociación', desc:'Fortalece tu presencia, prepara respuestas con metodología STAR y define tu estrategia de negociación.'},
+  {id:6, category:'Fase 3', type:'Módulo 6', title:'Plan de acción de 90 días', desc:'Termina el proceso con un plan SMART, métricas concretas y herramientas para gestionar tu búsqueda de manera autónoma.'},
+];
 
 const state = {
   page: 'landing',
@@ -324,7 +376,21 @@ function renderNosotros(){
   </section>`;
 }
 
-function resourceCard(item, cardClass, titleSize){
+function resourceCardOpen(item, cardClass, titleSize){
+  return `
+    <div class="${cardClass}" style="background:#fff;border:1px solid #ece7dd;border-radius:6px;padding:28px;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;gap:8px;align-items:center">
+        <span style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#1d6f9c;font-weight:600">${esc(item.category)}</span>
+        <span style="width:3px;height:3px;border-radius:50%;background:#c7c1b4"></span>
+        <span style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9a958a;font-weight:600">${esc(item.type)}</span>
+      </div>
+      <p style="font-family:'Newsreader',serif;font-size:${titleSize||19}px;color:#24262b;margin:0;font-weight:500;line-height:1.3">${esc(item.title)}</p>
+      <p style="font-size:14px;color:#767b82;margin:0;line-height:1.55;flex:1">${esc(item.desc)}</p>
+      <button onclick="openResource(${item.id})" style="align-self:flex-start;background:none;border:none;color:#E17B2F;font-weight:600;font-size:14px;cursor:pointer;padding:0;margin-top:4px">Ver contenido →</button>
+    </div>`;
+}
+
+function resourceCardGated(item, cardClass, titleSize){
   return `
     <div class="${cardClass}" style="background:#fff;border:1px solid #ece7dd;border-radius:6px;padding:28px;display:flex;flex-direction:column;gap:14px">
       <div style="display:flex;gap:8px;align-items:center">
@@ -340,7 +406,6 @@ function resourceCard(item, cardClass, titleSize){
 }
 
 function renderLanding(){
-  const featured = FEATURED_IDS.map(id => RESOURCES.find(r => r.id === id));
   const BENEFITS = [
     {icon:'user', title:'Forma parte de nuestra base de datos', desc:'Comparte tu experiencia.'},
     {icon:'calendar', title:'Participa en actividades exclusivas', desc:'Al formar parte de la comunidad podrás participar de charlas y conversaciones con expertos.'},
@@ -392,15 +457,15 @@ function renderLanding(){
   </section>
 
   <section style="padding:88px 48px;max-width:1240px;margin:0 auto;box-sizing:border-box">
-    <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:16px;margin-bottom:40px">
-      <h2 style="font-family:'Newsreader',serif;font-size:30px;color:#24262b;margin:0;font-weight:500">Recursos destacados</h2>
-      <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
-        <button onclick="openOutplacementInfo()" style="background:#fdf1e6;color:#b5601f;border:1px solid #f5d9b8;padding:9px 16px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer">Programa de Outplacement</button>
-        <a class="hk-link-hover" onclick="goLibrary()" style="font-size:14px;font-weight:600">Ver toda la biblioteca →</a>
-      </div>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px">
-      ${featured.map(item => resourceCard(item, 'hk-card-hover')).join('')}
+    <h2 style="font-family:'Newsreader',serif;font-size:30px;color:#24262b;margin:0 0 40px;font-weight:500;text-align:center">Programas</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px">
+      ${PROGRAMS.map(p => `
+        <div onclick="${p.action}" class="hk-card-hover" style="cursor:pointer;background:#fff;border:1px solid #ece7dd;border-radius:6px;padding:32px 28px;display:flex;flex-direction:column;gap:16px">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#E17B2F" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${p.icon}</svg>
+          <p style="font-family:'Newsreader',serif;font-size:20px;color:#24262b;margin:0;font-weight:500">${p.title}</p>
+          <p style="font-size:14px;color:#767b82;margin:0;line-height:1.55;flex:1">${p.desc}</p>
+          <span style="font-size:14px;font-weight:600;color:#E17B2F">Explorar →</span>
+        </div>`).join('')}
     </div>
   </section>
 
@@ -633,8 +698,7 @@ function renderLibrary(){
   return `
   <section style="max-width:1240px;margin:0 auto;padding:56px 48px 8px;box-sizing:border-box">
     <h1 style="font-family:'Newsreader',serif;font-size:32px;color:#24262b;margin:0 0 12px;font-weight:500">Biblioteca de recursos</h1>
-    <p style="color:#767b82;font-size:16px;margin:0 0 20px;max-width:640px;line-height:1.6">Artículos, videos, guías y plantillas para acompañarte en cada etapa de tu desarrollo profesional. Este contenido es parte de nuestro Programa de Outplacement.</p>
-    <button onclick="openOutplacementInfo()" style="background:#fdf1e6;color:#b5601f;border:1px solid #f5d9b8;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:32px">¿Qué es el Programa de Outplacement HK? →</button>
+    <p style="color:#767b82;font-size:16px;margin:0 0 32px;max-width:640px;line-height:1.6">Artículos, videos, guías y plantillas para acompañarte en cada etapa de tu desarrollo profesional.</p>
     <input class="hk-input" id="library-search" value="${esc(state.search)}" oninput="onLibrarySearch(this.value)" type="text" placeholder="Buscar por título o tema..." style="${inputStyle}margin-bottom:24px" />
     <div id="category-chips" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:40px">
       ${categoryChipsHtml()}
@@ -646,7 +710,7 @@ function renderLibrary(){
 }
 
 function categoryChipsHtml(){
-  return ['Todas', ...CATEGORIES].map(c => {
+  return ['Todas', ...CATEGORIES_GENERAL].map(c => {
     const selected = c === state.selectedCategory;
     return selected
       ? `<button class="hk-chip" onclick="setCategory('${esc(c)}')" style="background:#24262b;color:#fff;border:1px solid #24262b;padding:9px 16px;border-radius:20px;font-size:13px;font-weight:600">${esc(c)}</button>`
@@ -655,7 +719,7 @@ function categoryChipsHtml(){
 }
 
 function libraryResultsHtml(){
-  const filtered = RESOURCES
+  const filtered = RESOURCES_GENERAL
     .filter(r => (state.selectedCategory === 'Todas' || r.category === state.selectedCategory))
     .filter(r => state.search.trim() === '' || r.title.toLowerCase().includes(state.search.trim().toLowerCase()));
 
@@ -663,7 +727,7 @@ function libraryResultsHtml(){
     return `<p style="color:#767b82;font-size:15px;padding:40px 0;text-align:center">No encontramos recursos que coincidan con tu búsqueda.</p>`;
   }
   return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px">
-    ${filtered.map(item => resourceCard(item, '')).join('')}
+    ${filtered.map(item => resourceCardOpen(item, '')).join('')}
   </div>`;
 }
 
@@ -683,9 +747,38 @@ function openResource(id){
   goTo('detail');
 }
 
+function renderOutplacementProgram(){
+  return `
+  <section style="max-width:1240px;margin:0 auto;padding:56px 48px 8px;box-sizing:border-box">
+    <span style="display:inline-block;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#1d6f9c;font-weight:600;margin-bottom:16px">Programas</span>
+    <h1 style="font-family:'Newsreader',serif;font-size:32px;color:#24262b;margin:0 0 12px;font-weight:500">Programa de Outplacement HK</h1>
+    <p style="color:#767b82;font-size:16px;margin:0 0 20px;max-width:640px;line-height:1.6">Acompañamiento estructurado en 3 fases para tu transición profesional. Este contenido es exclusivo para participantes del programa.</p>
+    <button onclick="openOutplacementInfo()" style="background:#fdf1e6;color:#b5601f;border:1px solid #f5d9b8;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:40px">¿Qué es el Programa de Outplacement HK? →</button>
+  </section>
+  <section style="max-width:1240px;margin:0 auto;padding:0 48px 96px;box-sizing:border-box">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px">
+      ${RESOURCES_OUTPLACEMENT.map(item => resourceCardGated(item, '')).join('')}
+    </div>
+  </section>`;
+}
+
+function renderCoaching(){
+  return `
+  <section style="max-width:900px;margin:0 auto;padding:56px 48px 96px;box-sizing:border-box">
+    <span style="display:inline-block;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#1d6f9c;font-weight:600;margin-bottom:16px">Programas</span>
+    <h1 style="font-family:'Newsreader',serif;font-size:32px;color:#24262b;margin:0 0 16px;font-weight:500">Coaching Ejecutivo</h1>
+    <p style="color:#767b82;font-size:16px;margin:0 0 32px;max-width:640px;line-height:1.6">Un espacio de desarrollo personalizado para fortalecer tu liderazgo, tomar mejores decisiones y potenciar tu impacto como ejecutivo.</p>
+    <div style="background:#fff;border:1px solid #ece7dd;border-radius:6px;padding:32px;margin-bottom:24px">
+      <p style="font-family:'Newsreader',serif;font-size:19px;color:#24262b;margin:0 0 12px;font-weight:500">Contenido en preparación</p>
+      <p style="color:#767b82;font-size:15px;line-height:1.6;margin:0">Estamos incorporando el detalle de metodologías y enfoque de nuestro Coaching Ejecutivo. Mientras tanto, escríbenos y te contamos todo.</p>
+    </div>
+    <button onclick="openOutplacementInfo()" style="background:#E17B2F;color:#fff;border:none;padding:14px 26px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Quiero más información →</button>
+  </section>`;
+}
+
 function renderDetail(){
-  const r = RESOURCES.find(x => x.id === state.selectedResourceId) || RESOURCES[0];
-  const related = RESOURCES.filter(x => x.category === r.category && x.id !== r.id).slice(0,3);
+  const r = RESOURCES_GENERAL.find(x => x.id === state.selectedResourceId) || RESOURCES_GENERAL[0];
+  const related = RESOURCES_GENERAL.filter(x => x.category === r.category && x.id !== r.id).slice(0,3);
   return `
   <section style="max-width:760px;margin:0 auto;padding:48px 24px 24px;box-sizing:border-box">
     <a class="hk-link-hover" onclick="goLibrary()" style="font-size:13px;font-weight:600">← Biblioteca de recursos</a>
@@ -1114,7 +1207,7 @@ function renderMain(){
   const map = {
     landing: renderLanding, form1: renderForm1, form2: renderForm2,
     confirmation: renderConfirmation, library: renderLibrary, detail: renderDetail,
-    nosotros: renderNosotros,
+    nosotros: renderNosotros, outplacement: renderOutplacementProgram, coaching: renderCoaching,
   };
   document.getElementById('main').innerHTML = map[state.page]();
 }
