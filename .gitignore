@@ -2,3 +2,6 @@
 .env
 .env.local
 .image-slots.state.json
+
+.vercel
+.env*
