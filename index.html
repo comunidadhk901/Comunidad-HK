@@ -152,10 +152,8 @@
     <input class="hk-input" id="redit-title" type="text" style="${'width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;margin-bottom:16px'}" />
     <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Descripción breve (se muestra en la tarjeta)</label>
     <textarea id="redit-desc" rows="2" style="width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;margin-bottom:16px;resize:vertical;font-family:'Public Sans',sans-serif"></textarea>
-    <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Cuerpo — párrafo 1</label>
-    <textarea id="redit-body1" rows="4" style="width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;margin-bottom:16px;resize:vertical;font-family:'Public Sans',sans-serif"></textarea>
-    <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Cuerpo — párrafo 2</label>
-    <textarea id="redit-body2" rows="4" style="width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;margin-bottom:16px;resize:vertical;font-family:'Public Sans',sans-serif"></textarea>
+    <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Cuerpo</label>
+    <textarea id="redit-body1" rows="10" style="width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;margin-bottom:16px;resize:vertical;font-family:'Public Sans',sans-serif"></textarea>
     <button onclick="saveResourceEdit()" style="width:100%;background:#E17B2F;color:#fff;border:none;padding:14px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Guardar</button>
     <p id="redit-msg" style="font-size:13px;margin:14px 0 0;display:none"></p>
   </div>
@@ -812,8 +810,7 @@ function renderDetail(){
     </div>
     <h1 style="font-family:'Newsreader',serif;font-size:34px;color:#24262b;margin:0 0 28px;font-weight:500;line-height:1.2">${esc(r.title)}</h1>
     ${resourceCoverHtml(r)}
-    <p style="font-size:17px;line-height:1.75;color:#3f4247;margin:0 0 20px;white-space:pre-line">${esc(r.bodyOne)}</p>
-    <p style="font-size:17px;line-height:1.75;color:#3f4247;margin:0 0 32px;white-space:pre-line">${esc(r.bodyTwo)}</p>
+    <p style="font-size:17px;line-height:1.75;color:#3f4247;margin:0 0 32px;white-space:pre-line">${esc([r.bodyOne, r.bodyTwo].filter(Boolean).join('\n\n'))}</p>
     ${r.downloadable ? `<button style="background:#24262b;color:#fff;border:none;padding:15px 26px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer;margin-bottom:16px">Descargar ${esc(r.type)}</button>` : ''}
   </section>
   ${related.length ? `
@@ -838,10 +835,11 @@ function resourceCoverUrl(r){
 function resourceCoverHtml(r){
   const url = resourceCoverUrl(r);
   const controlId = r.slug || r.id;
+  const emptyBoxStyle = url ? '' : 'height:220px;background:linear-gradient(135deg,#fdece0 0%,#faf1e7 100%);border:1px solid #ece7dd;';
   return `
-  <div id="resource-cover-${controlId}" style="position:relative;width:100%;height:340px;margin-bottom:36px;border-radius:8px;overflow:hidden;background:linear-gradient(135deg,#fdece0 0%,#faf1e7 100%);border:1px solid #ece7dd" ondragover="event.preventDefault()" ondrop="event.preventDefault();handleResourceCoverFileDrop(event,'${r.slug||''}')">
+  <div id="resource-cover-${controlId}" style="position:relative;width:100%;margin-bottom:36px;border-radius:8px;overflow:hidden;${emptyBoxStyle}" ondragover="event.preventDefault()" ondrop="event.preventDefault();handleResourceCoverFileDrop(event,'${r.slug||''}')">
     ${url
-      ? `<img src="${url}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block" />`
+      ? `<img src="${url}" alt="" style="width:100%;height:auto;display:block;border-radius:8px" />`
       : `<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#9a958a;font-size:14px;gap:8px">
            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#9a958a" stroke-width="1.5"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10.5" r="1.5"/><path d="M21 15l-5-5-9 9"/></svg>
            <span>Imagen de portada del recurso</span>
@@ -893,7 +891,6 @@ function openResourceEditModal(slug){
   document.getElementById('redit-title').value = r.title;
   document.getElementById('redit-desc').value = r.desc;
   document.getElementById('redit-body1').value = r.bodyOne || '';
-  document.getElementById('redit-body2').value = r.bodyTwo || '';
   document.getElementById('redit-msg').style.display = 'none';
   document.getElementById('resource-edit-modal').style.display = 'flex';
 }
@@ -905,12 +902,11 @@ function closeResourceEditModal(){
 async function saveResourceEdit(){
   const title = document.getElementById('redit-title').value.trim();
   const desc = document.getElementById('redit-desc').value.trim();
-  const bodyOne = document.getElementById('redit-body1').value.trim();
-  const bodyTwo = document.getElementById('redit-body2').value.trim();
+  const body = document.getElementById('redit-body1').value.trim();
   const msg = document.getElementById('redit-msg');
   if (!title || !desc){ return; }
   const { error } = await supabaseClient.from('resource_content').upsert({
-    slug: currentEditingSlug, title, desc_text: desc, body_one: bodyOne, body_two: bodyTwo, updated_at: new Date().toISOString(),
+    slug: currentEditingSlug, title, desc_text: desc, body_one: body, body_two: null, updated_at: new Date().toISOString(),
   });
   if (error){
     msg.style.display = 'block';
@@ -919,7 +915,7 @@ async function saveResourceEdit(){
     return;
   }
   const r = RESOURCES_GENERAL.find(x => x.slug === currentEditingSlug);
-  if (r){ r.title = title; r.desc = desc; r.bodyOne = bodyOne; r.bodyTwo = bodyTwo; }
+  if (r){ r.title = title; r.desc = desc; r.bodyOne = body; r.bodyTwo = ''; }
   closeResourceEditModal();
   renderMain();
 }
@@ -931,7 +927,9 @@ async function loadResourceContentOverrides(){
   data.forEach(row => {
     const r = RESOURCES_GENERAL.find(x => x.slug === row.slug);
     if (r){
-      r.title = row.title; r.desc = row.desc_text; r.bodyOne = row.body_one; r.bodyTwo = row.body_two;
+      r.title = row.title; r.desc = row.desc_text;
+      r.bodyOne = row.body_two ? [row.body_one, row.body_two].filter(Boolean).join('\n\n') : row.body_one;
+      r.bodyTwo = '';
       r.coverUpdatedAt = row.cover_updated_at;
       changed = true;
     }
