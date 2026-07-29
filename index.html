@@ -813,8 +813,8 @@ function renderDetail(){
     </div>
     <h1 style="font-family:'Newsreader',serif;font-size:34px;color:#24262b;margin:0 0 28px;font-weight:500;line-height:1.2">${esc(r.title)}</h1>
     <image-slot id="detail-cover-${r.id}" shape="rounded" radius="8" placeholder="Imagen de portada del recurso" style="width:100%;height:340px;margin-bottom:36px"></image-slot>
-    <p style="font-size:17px;line-height:1.75;color:#3f4247;margin:0 0 20px">${esc(r.bodyOne)}</p>
-    <p style="font-size:17px;line-height:1.75;color:#3f4247;margin:0 0 32px">${esc(r.bodyTwo)}</p>
+    <p style="font-size:17px;line-height:1.75;color:#3f4247;margin:0 0 20px;white-space:pre-line">${esc(r.bodyOne)}</p>
+    <p style="font-size:17px;line-height:1.75;color:#3f4247;margin:0 0 32px;white-space:pre-line">${esc(r.bodyTwo)}</p>
     ${r.downloadable ? `<button style="background:#24262b;color:#fff;border:none;padding:15px 26px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer;margin-bottom:16px">Descargar ${esc(r.type)}</button>` : ''}
   </section>
   ${related.length ? `
