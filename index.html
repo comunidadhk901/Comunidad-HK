@@ -455,8 +455,8 @@ function renderLanding(){
         <button class="hk-gold-btn-outline" onclick="goLibrary()" style="background:transparent;color:#24262b;border:1px solid #d8d2c6;padding:16px 30px;border-radius:4px;font-weight:700;font-size:14px;letter-spacing:0.03em;text-transform:uppercase;cursor:pointer">Explorar recursos</button>
       </div>
     </div>
-    <div id="hero-image-container" style="flex:1 1 480px;min-width:320px;min-height:420px;align-self:stretch;position:relative;overflow:hidden" ondragover="event.preventDefault()" ondrop="event.preventDefault();handleHeroFileDrop(event)">
-      <img id="hero-image-el" src="${heroImageUrl() || HERO_FALLBACK_URL}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block" />
+    <div id="hero-image-container" style="flex:1 1 480px;min-width:320px;min-height:420px;align-self:stretch;position:relative;overflow:hidden;background:linear-gradient(135deg,#fdece0 0%,#faf1e7 100%)" ondragover="event.preventDefault()" ondrop="event.preventDefault();handleHeroFileDrop(event)">
+      <img id="hero-image-el" src="${heroImageUrl() || HERO_FALLBACK_URL}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block" />
       <div style="position:absolute;inset:0;pointer-events:none;z-index:1;background:
         linear-gradient(90deg, #fdece0 0%, #fdece0 6%, rgba(253,236,224,0.7) 18%, rgba(253,236,224,0.48) 30%, rgba(253,236,224,0.25) 42%, rgba(253,236,224,0.08) 55%, rgba(253,236,224,0) 66%),
         linear-gradient(180deg, rgba(253,236,224,0.2) 0%, rgba(253,236,224,0) 10%),
