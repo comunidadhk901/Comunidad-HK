@@ -750,11 +750,65 @@ function renderConfirmation(){
   </section>`;
 }
 
+const COMMUNITY_ACCESS_KEY = 'hk_community_email';
+
+function isCommunityVerified(){
+  return !!localStorage.getItem(COMMUNITY_ACCESS_KEY);
+}
+
+function hasResourceAccess(){
+  return isAdminSession || isCommunityVerified();
+}
+
+function clearCommunityAccess(){
+  localStorage.removeItem(COMMUNITY_ACCESS_KEY);
+  goTo('library');
+}
+
+async function verifyCommunityAccess(){
+  const email = document.getElementById('community-gate-email').value.trim();
+  const msg = document.getElementById('community-gate-msg');
+  const btn = document.getElementById('community-gate-btn');
+  if (!email) return;
+  btn.disabled = true;
+  const { data, error } = await supabaseClient.rpc('is_community_member', { check_email: email });
+  btn.disabled = false;
+  msg.style.display = 'block';
+  if (error){
+    msg.style.color = '#c0392b';
+    msg.textContent = 'Ocurrió un error al verificar tu acceso. Intenta de nuevo.';
+    return;
+  }
+  if (data){
+    localStorage.setItem(COMMUNITY_ACCESS_KEY, email.toLowerCase());
+    goTo('library');
+    return;
+  }
+  msg.style.color = '#c0392b';
+  msg.textContent = 'No encontramos ese correo en la Comunidad HK. Revisa que esté bien escrito o únete a la comunidad.';
+}
+
+function renderLibraryGate(){
+  return `
+  <section style="max-width:480px;margin:0 auto;padding:96px 24px;box-sizing:border-box;text-align:center">
+    <span style="display:inline-block;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#1d6f9c;font-weight:600;margin-bottom:16px">Biblioteca de recursos</span>
+    <h1 style="font-family:'Newsreader',serif;font-size:28px;color:#24262b;margin:0 0 12px;font-weight:500">Contenido exclusivo para la Comunidad HK</h1>
+    <p style="color:#767b82;font-size:15px;line-height:1.65;margin:0 0 28px">Este contenido está disponible para quienes ya forman parte de la Comunidad de Talento HK. Ingresa el correo con el que te uniste para acceder.</p>
+    <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px;text-align:left">Correo electrónico</label>
+    <input class="hk-input" id="community-gate-email" type="email" placeholder="tu@email.com" style="${inputStyle}margin-bottom:16px" />
+    <button id="community-gate-btn" class="hk-btn-primary" onclick="verifyCommunityAccess()" style="width:100%;background:#E17B2F;color:#fff;border:none;padding:15px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Verificar acceso</button>
+    <p id="community-gate-msg" style="font-size:14px;margin:16px 0 0;display:none;text-align:left"></p>
+    <p style="font-size:14px;color:#767b82;margin:28px 0 0">¿Aún no eres parte de la comunidad? <a class="hk-link-hover" onclick="goForm1()" style="font-weight:600">Únete aquí</a></p>
+  </section>`;
+}
+
 function renderLibrary(){
+  if (!hasResourceAccess()) return renderLibraryGate();
   return `
   <section style="max-width:1240px;margin:0 auto;padding:56px 48px 8px;box-sizing:border-box">
     <h1 style="font-family:'Newsreader',serif;font-size:32px;color:#24262b;margin:0 0 12px;font-weight:500">Biblioteca de recursos</h1>
-    <p style="color:#767b82;font-size:16px;margin:0 0 32px;max-width:640px;line-height:1.6">Muy pronto encontrarás artículos, videos, guías y plantillas con contenido práctico para acompañarte en cada etapa de tu desarrollo profesional y ayudarte a enfrentar nuevos desafíos laborales.</p>
+    <p style="color:#767b82;font-size:16px;margin:0 0 12px;max-width:640px;line-height:1.6">Muy pronto encontrarás artículos, videos, guías y plantillas con contenido práctico para acompañarte en cada etapa de tu desarrollo profesional y ayudarte a enfrentar nuevos desafíos laborales.</p>
+    ${!isAdminSession ? `<p style="font-size:13px;color:#9a958a;margin:0 0 24px">Accediste como ${esc(localStorage.getItem(COMMUNITY_ACCESS_KEY) || '')} · <a class="hk-link-hover" onclick="clearCommunityAccess()" style="font-weight:600">¿No eres tú?</a></p>` : ''}
     <input class="hk-input" id="library-search" value="${esc(state.search)}" oninput="onLibrarySearch(this.value)" type="text" placeholder="Buscar por título o tema..." style="${inputStyle}margin-bottom:24px" />
     <div id="category-chips" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:40px">
       ${categoryChipsHtml()}
@@ -870,6 +924,7 @@ function renderCoaching(){
 }
 
 function renderDetail(){
+  if (!hasResourceAccess()) return renderLibraryGate();
   const r = RESOURCES_GENERAL.find(x => x.id === state.selectedResourceId) || RESOURCES_GENERAL[0];
   const related = RESOURCES_GENERAL.filter(x => x.category === r.category && x.id !== r.id && x.enabled !== false).slice(0,3);
   return `
