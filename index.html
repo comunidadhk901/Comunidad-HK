@@ -947,6 +947,7 @@ function renderDetail(){
           <button onclick="toggleResourceEnabled('${r.slug}')" style="background:${r.enabled === false ? '#E17B2F' : '#fff'};color:${r.enabled === false ? '#fff' : '#24262b'};border:1px solid ${r.enabled === false ? '#E17B2F' : '#d8d2c6'};padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer">${r.enabled === false ? 'Habilitar' : 'Deshabilitar'}</button>
         </div>` : ''}
     </div>
+    ${r.slug && isAdminSession ? `<p id="toggle-msg" style="font-size:13px;margin:0 0 16px;display:none"></p>` : ''}
     <h1 style="font-family:'Newsreader',serif;font-size:34px;color:#24262b;margin:0 0 28px;font-weight:500;line-height:1.2">${esc(r.title)}</h1>
     ${resourceCoverHtml(r)}
     <p style="font-size:17px;line-height:1.75;color:#3f4247;margin:0 0 32px;white-space:pre-line">${esc([r.bodyOne, r.bodyTwo].filter(Boolean).join('\n\n'))}</p>
@@ -1065,7 +1066,7 @@ async function toggleResourceEnabled(slug){
     slug, enabled: newVal, title: r.title, desc_text: r.desc, body_one: r.bodyOne || '', body_two: null,
   });
   if (error){
-    const msg = document.getElementById('redit-msg');
+    const msg = document.getElementById('toggle-msg');
     if (msg){ msg.style.display = 'block'; msg.style.color = '#c0392b'; msg.textContent = 'No se pudo actualizar: ' + error.message; }
     return;
   }
