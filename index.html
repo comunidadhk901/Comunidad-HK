@@ -768,10 +768,10 @@ async function submitForm(){
 function renderWelcomeContent(nombre){
   const nombreHtml = nombre ? `<span style="color:#b5601f;font-style:italic">${esc(nombre)}</span>` : '';
   const encuentraItems = [
-    {icon:'👥', title:'Redes, no solo contactos', desc:'La mayoría de las oportunidades reales nunca llegan a un portal de empleo — se mueven a través de referidos y conexiones. Aquí construyes esa red antes de necesitarla.'},
-    {icon:'💬', title:'En el radar de nuestras consultoras', desc:'Tu perfil queda visible ante nuestro equipo de Executive Search — cuando surja algo alineado a tu momento, no vas a tener que estar buscándolo tú.'},
-    {icon:'🌱', title:'Desarrollo real, no solo búsqueda de empleo', desc:'Recursos para crecer aunque no estés buscando trabajo hoy: cómo tener conversaciones difíciles, liderar equipos, o simplemente entender hacia dónde quieres llevar tu carrera.'},
-    {icon:'📅', title:'Actividades exclusivas', desc:'Charlas y conversaciones con expertos, pensadas para tu momento de carrera — no contenido genérico.'},
+    {title:'Redes, no solo contactos', desc:'La mayoría de las oportunidades reales nunca llegan a un portal de empleo — se mueven a través de referidos y conexiones. Aquí construyes esa red antes de necesitarla.'},
+    {title:'En el radar de nuestras consultoras', desc:'Tu perfil queda en nuestra base de datos y visible para nuestro equipo de Executive Search — cuando surja algo alineado a tu momento, no vas a tener que estar buscándolo tú.'},
+    {title:'Desarrollo real, no solo búsqueda de empleo', desc:'Recursos para crecer aunque no estés buscando trabajo hoy: cómo tener conversaciones difíciles, liderar equipos, o simplemente entender hacia dónde quieres llevar tu carrera.'},
+    {title:'Actividades exclusivas', desc:'Charlas y conversaciones con expertos, pensadas para tu momento de carrera — no contenido genérico.'},
   ];
   return `
   <section style="max-width:720px;margin:0 auto;padding:72px 24px 8px;box-sizing:border-box">
@@ -784,11 +784,8 @@ function renderWelcomeContent(nombre){
     <div style="background:#fff;border:1px solid #ece7dd;border-radius:14px;padding:36px">
       <span style="display:inline-block;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#b5601f;font-weight:700;margin-bottom:14px">Cómo te vamos a acompañar</span>
       <h2 style="font-family:'Newsreader',serif;font-size:22px;color:#24262b;margin:0 0 18px;font-weight:500;line-height:1.35">Esto no es un lugar donde solo dejas tu CV archivado.</h2>
-      <p style="color:#5b5f64;font-size:15px;line-height:1.7;margin:0 0 16px">Nuestro equipo de Executive Search mantiene tu perfil visible para oportunidades reales — no todas se publican en un portal de empleo, muchas se mueven a través de contactos y referidos, y por eso estar en esta comunidad ya te pone un paso adelante.</p>
-      <p style="color:#5b5f64;font-size:15px;line-height:1.7;margin:0 0 24px">Además, vas a tener acceso a recursos concretos para cada etapa: desde cómo estructurar tu búsqueda si acabas de salir de un trabajo, hasta cómo fortalecer tu liderazgo si lo que buscas es crecer donde ya estás. No es contenido genérico — está pensado para tu momento actual.</p>
-      <div style="border-top:1px solid #f1ede5;padding-top:20px">
-        <p style="color:#9a958a;font-size:13px;line-height:1.7;font-style:italic;margin:0">Este tipo de acompañamiento continuo —no solo en momentos de búsqueda activa— es una práctica común en otros países (en EE.UU., por ejemplo, es una industria de más de US$17.000 millones al año). Acá casi no existe fuera de las universidades, y quisimos construirlo.</p>
-      </div>
+      <p style="color:#5b5f64;font-size:15px;line-height:1.7;margin:0 0 16px">Nuestro equipo de Executive Search mantiene tu perfil en nuestra base de datos y visible para nuestras consultoras — muchas oportunidades reales se mueven a través de contactos y referidos, y por eso estar en esta comunidad ya te pone un paso adelante.</p>
+      <p style="color:#5b5f64;font-size:15px;line-height:1.7;margin:0">Además, vas a tener acceso a recursos concretos para cada etapa: desde cómo estructurar tu búsqueda si acabas de salir de un trabajo, hasta cómo fortalecer tu liderazgo si lo que buscas es crecer donde ya estás. No es contenido genérico — está pensado para tu momento actual.</p>
     </div>
   </section>
 
@@ -800,7 +797,6 @@ function renderWelcomeContent(nombre){
     <div style="background:#fff;border:1px solid #ece7dd;border-radius:14px;padding:8px 36px">
       ${encuentraItems.map((item, i) => `
         <div style="padding:26px 0;${i < encuentraItems.length - 1 ? 'border-bottom:1px solid #f1ede5' : ''}">
-          <p style="font-size:22px;margin:0 0 12px">${item.icon}</p>
           <p style="font-family:'Newsreader',serif;font-size:17px;color:#24262b;margin:0 0 8px;font-weight:500">${item.title}</p>
           <p style="color:#767b82;font-size:14px;line-height:1.65;margin:0">${item.desc}</p>
         </div>`).join('')}
