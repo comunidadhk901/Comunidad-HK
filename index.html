@@ -55,7 +55,7 @@
   </a>
   <nav class="hk-nav-links">
     <a class="hk-link-hover" onclick="goHome()" style="font-size:15px;color:#3f4247;font-weight:500">Inicio</a>
-    <a class="hk-link-hover" onclick="goTo('admin')" style="font-size:15px;color:#3f4247;font-weight:500">Comunidad</a>
+    <a class="hk-link-hover" onclick="goTo('community')" style="font-size:15px;color:#3f4247;font-weight:500">Comunidad</a>
     <a class="hk-link-hover" onclick="goLibrary()" style="font-size:15px;color:#3f4247;font-weight:500">Recursos</a>
     <a class="hk-link-hover" onclick="goTo('nosotros')" style="font-size:15px;color:#3f4247;font-weight:500">Nosotros</a>
     <a class="hk-link-hover" onclick="scrollToContact()" style="font-size:15px;color:#3f4247;font-weight:500">Contacto</a>
@@ -70,7 +70,7 @@
   </button>
   <div id="mobile-menu" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border-bottom:1px solid #ece7dd;flex-direction:column;padding:12px 24px 20px;gap:2px;z-index:30;box-shadow:0 12px 24px rgba(0,0,0,0.06)">
     <a class="hk-link-hover" onclick="goHome()" style="padding:14px 0;color:#3f4247;font-weight:500;border-bottom:1px solid #f1ede5">Inicio</a>
-    <a class="hk-link-hover" onclick="goTo('admin')" style="padding:14px 0;color:#3f4247;font-weight:500;border-bottom:1px solid #f1ede5">Comunidad</a>
+    <a class="hk-link-hover" onclick="goTo('community')" style="padding:14px 0;color:#3f4247;font-weight:500;border-bottom:1px solid #f1ede5">Comunidad</a>
     <a class="hk-link-hover" onclick="goLibrary()" style="padding:14px 0;color:#3f4247;font-weight:500;border-bottom:1px solid #f1ede5">Recursos</a>
     <a class="hk-link-hover" onclick="goTo('nosotros')" style="padding:14px 0;color:#3f4247;font-weight:500;border-bottom:1px solid #f1ede5">Nosotros</a>
     <a class="hk-link-hover" onclick="scrollToContact()" style="padding:14px 0;color:#3f4247;font-weight:500">Contacto</a>
@@ -765,59 +765,113 @@ async function submitForm(){
   goTo('confirmation');
 }
 
-function renderConfirmation(){
-  const nombre = state.form.nombre || '';
+function renderWelcomeContent(nombre){
+  const nombreHtml = nombre ? `<span style="color:#b5601f;font-style:italic">${esc(nombre)}</span>` : '';
+  const encuentraItems = [
+    {icon:'👥', title:'Redes, no solo contactos', desc:'La mayoría de las oportunidades reales nunca llegan a un portal de empleo — se mueven a través de referidos y conexiones. Aquí construyes esa red antes de necesitarla.'},
+    {icon:'💬', title:'En el radar de nuestras consultoras', desc:'Tu perfil queda visible ante nuestro equipo de Executive Search — cuando surja algo alineado a tu momento, no vas a tener que estar buscándolo tú.'},
+    {icon:'🌱', title:'Desarrollo real, no solo búsqueda de empleo', desc:'Recursos para crecer aunque no estés buscando trabajo hoy: cómo tener conversaciones difíciles, liderar equipos, o simplemente entender hacia dónde quieres llevar tu carrera.'},
+    {icon:'📅', title:'Actividades exclusivas', desc:'Charlas y conversaciones con expertos, pensadas para tu momento de carrera — no contenido genérico.'},
+  ];
   return `
-  <section style="max-width:760px;margin:0 auto;padding:96px 24px 56px;text-align:center;box-sizing:border-box">
-    <div style="width:64px;height:64px;border-radius:50%;background:#E17B2F;display:flex;align-items:center;justify-content:center;margin:0 auto 32px">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M4 12.5L9.5 18L20 6" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </div>
-    <h1 style="font-family:'Newsreader',serif;font-size:32px;color:#24262b;margin:0 0 16px;font-weight:500">¡Bienvenido${nombre ? ' ' + esc(nombre) : ''} a la Comunidad HK Human Capital!</h1>
-    <p style="color:#5b5f64;font-size:16px;line-height:1.65;margin:0 0 8px">Estás en un espacio pensado para acompañarte.</p>
-    <p style="color:#5b5f64;font-size:16px;line-height:1.65;margin:0 0 40px">No importa si hoy estás buscando trabajo, creciendo en tu empresa o simplemente preparándote para el próximo desafío. Esta comunidad fue creada para acompañarte durante toda tu carrera profesional.</p>
-    <button class="hk-btn-primary" onclick="goLibrary()" style="background:#E17B2F;color:#fff;border:none;padding:15px 28px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Explorar recursos</button>
+  <section style="max-width:720px;margin:0 auto;padding:72px 24px 8px;box-sizing:border-box">
+    <span style="display:inline-block;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#b5601f;font-weight:700;margin-bottom:16px">Comunidad de Talento HK</span>
+    <h1 style="font-family:'Newsreader',serif;font-size:32px;color:#24262b;margin:0 0 20px;font-weight:500;line-height:1.3">Bienvenido${nombre ? ', ' + nombreHtml : ''}. Estás en un espacio pensado para acompañarte.</h1>
+    <p style="color:#5b5f64;font-size:16px;line-height:1.75;margin:0 0 40px">Sea que estés buscando dar un salto en tu carrera, evaluando un cambio de rumbo, o retomando después de una salida que no elegiste — no estás solo en esto. Aquí vas a encontrar <strong style="color:#24262b">personas</strong>, <strong style="color:#24262b">oportunidades</strong> que no siempre están publicadas, y <strong style="color:#24262b">acompañamiento real</strong> para dar el siguiente paso, sea cual sea.</p>
   </section>
 
-  <section style="max-width:760px;margin:0 auto;padding:40px 24px;border-top:1px solid #ece7dd;box-sizing:border-box">
-    <h2 style="font-family:'Newsreader',serif;font-size:24px;color:#24262b;margin:0 0 20px;font-weight:500;text-align:center">¿Qué es la Comunidad HK?</h2>
-    <p style="color:#5b5f64;font-size:16px;line-height:1.7;margin:0 0 16px">En HK Human Capital creemos que el desarrollo profesional no debería comenzar únicamente cuando necesitas cambiar de trabajo.</p>
-    <p style="color:#5b5f64;font-size:16px;line-height:1.7;margin:0">Por eso creamos un espacio donde encontrarás recursos prácticos, oportunidades, contenido exclusivo y actividades diseñadas para ayudarte a crecer profesionalmente, en cualquier etapa de tu carrera.</p>
-  </section>
-
-  <section style="max-width:1000px;margin:0 auto;padding:40px 24px;box-sizing:border-box">
-    <h2 style="font-family:'Newsreader',serif;font-size:24px;color:#24262b;margin:0 0 28px;font-weight:500;text-align:center">¿Qué encontrarás aquí?</h2>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:24px">
-      <div style="background:#fff;border:1px solid #ece7dd;border-radius:6px;padding:28px">
-        <p style="font-size:26px;margin:0 0 12px">🚀</p>
-        <p style="font-family:'Newsreader',serif;font-size:17px;color:#24262b;margin:0 0 8px;font-weight:500">Oportunidades laborales</p>
-        <p style="font-size:14px;color:#767b82;margin:0;line-height:1.6">Tu perfil podrá ser considerado en procesos de Executive Search y posiciones que muchas veces no llegan a publicarse.</p>
-      </div>
-      <div style="background:#fff;border:1px solid #ece7dd;border-radius:6px;padding:28px">
-        <p style="font-size:26px;margin:0 0 12px">📚</p>
-        <p style="font-family:'Newsreader',serif;font-size:17px;color:#24262b;margin:0 0 8px;font-weight:500">Recursos para tu desarrollo</p>
-        <p style="font-size:14px;color:#767b82;margin:0;line-height:1.6">Guías, artículos y herramientas para mejorar tu CV, prepararte para entrevistas, desarrollar liderazgo y potenciar tu carrera.</p>
-      </div>
-      <div style="background:#fff;border:1px solid #ece7dd;border-radius:6px;padding:28px">
-        <p style="font-size:26px;margin:0 0 12px">🎤</p>
-        <p style="font-family:'Newsreader',serif;font-size:17px;color:#24262b;margin:0 0 8px;font-weight:500">Charlas y eventos exclusivos</p>
-        <p style="font-size:14px;color:#767b82;margin:0;line-height:1.6">Accede a webinars, conversatorios y actividades con especialistas en talento, liderazgo y desarrollo profesional.</p>
+  <section style="max-width:720px;margin:0 auto;padding:8px 24px 40px;box-sizing:border-box">
+    <div style="background:#fff;border:1px solid #ece7dd;border-radius:14px;padding:36px">
+      <span style="display:inline-block;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#b5601f;font-weight:700;margin-bottom:14px">Cómo te vamos a acompañar</span>
+      <h2 style="font-family:'Newsreader',serif;font-size:22px;color:#24262b;margin:0 0 18px;font-weight:500;line-height:1.35">Esto no es un lugar donde solo dejas tu CV archivado.</h2>
+      <p style="color:#5b5f64;font-size:15px;line-height:1.7;margin:0 0 16px">Nuestro equipo de Executive Search mantiene tu perfil visible para oportunidades reales — no todas se publican en un portal de empleo, muchas se mueven a través de contactos y referidos, y por eso estar en esta comunidad ya te pone un paso adelante.</p>
+      <p style="color:#5b5f64;font-size:15px;line-height:1.7;margin:0 0 24px">Además, vas a tener acceso a recursos concretos para cada etapa: desde cómo estructurar tu búsqueda si acabas de salir de un trabajo, hasta cómo fortalecer tu liderazgo si lo que buscas es crecer donde ya estás. No es contenido genérico — está pensado para tu momento actual.</p>
+      <div style="border-top:1px solid #f1ede5;padding-top:20px">
+        <p style="color:#9a958a;font-size:13px;line-height:1.7;font-style:italic;margin:0">Este tipo de acompañamiento continuo —no solo en momentos de búsqueda activa— es una práctica común en otros países (en EE.UU., por ejemplo, es una industria de más de US$17.000 millones al año). Acá casi no existe fuera de las universidades, y quisimos construirlo.</p>
       </div>
     </div>
   </section>
 
-  <section style="background:#24262b;padding:56px 24px;margin-top:16px">
-    <div style="max-width:760px;margin:0 auto;text-align:center">
-      <h2 style="font-family:'Newsreader',serif;font-size:24px;color:#fff;margin:0 0 20px;font-weight:500">Nuestro propósito</h2>
-      <p style="color:#c7c9cc;font-size:16px;line-height:1.7;margin:0 0 16px">Queremos acompañarte durante toda tu vida profesional, no solo cuando buscas un nuevo trabajo.</p>
-      <p style="color:#c7c9cc;font-size:16px;line-height:1.7;margin:0">Creemos que las mejores carreras se construyen con aprendizaje continuo, preparación y una buena red de apoyo.</p>
+  <section style="max-width:720px;margin:0 auto;padding:24px 24px 0;box-sizing:border-box">
+    <span style="display:inline-block;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#b5601f;font-weight:700;margin-bottom:16px">Lo que vas a encontrar aquí</span>
+    <h2 style="font-family:'Newsreader',serif;font-size:25px;color:#24262b;margin:0 0 28px;font-weight:500">Cuatro formas concretas en que te acompañamos</h2>
+  </section>
+  <section style="max-width:720px;margin:0 auto;padding:0 24px 40px;box-sizing:border-box">
+    <div style="background:#fff;border:1px solid #ece7dd;border-radius:14px;padding:8px 36px">
+      ${encuentraItems.map((item, i) => `
+        <div style="padding:26px 0;${i < encuentraItems.length - 1 ? 'border-bottom:1px solid #f1ede5' : ''}">
+          <p style="font-size:22px;margin:0 0 12px">${item.icon}</p>
+          <p style="font-family:'Newsreader',serif;font-size:17px;color:#24262b;margin:0 0 8px;font-weight:500">${item.title}</p>
+          <p style="color:#767b82;font-size:14px;line-height:1.65;margin:0">${item.desc}</p>
+        </div>`).join('')}
     </div>
   </section>
 
-  <section style="max-width:560px;margin:0 auto;padding:56px 24px 96px;text-align:center;box-sizing:border-box">
-    <h2 style="font-family:'Newsreader',serif;font-size:24px;color:#24262b;margin:0 0 16px;font-weight:500">Comienza hoy</h2>
-    <p style="color:#5b5f64;font-size:16px;line-height:1.7;margin:0 0 32px">Explora los recursos disponibles, mantén tu perfil actualizado y vuelve cuando quieras. Siempre estaremos incorporando nuevo contenido para ayudarte a dar el siguiente paso.</p>
-    <button class="hk-btn-primary" onclick="goLibrary()" style="background:#E17B2F;color:#fff;border:none;padding:15px 28px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Comenzar</button>
+  <section style="max-width:720px;margin:0 auto;padding:24px 24px 0;box-sizing:border-box">
+    <span style="display:inline-block;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#b5601f;font-weight:700;margin-bottom:16px">Tu próximo paso</span>
+    <h2 style="font-family:'Newsreader',serif;font-size:25px;color:#24262b;margin:0 0 16px;font-weight:500">¿Por dónde te gustaría empezar?</h2>
+    <p style="color:#5b5f64;font-size:16px;line-height:1.75;margin:0 0 32px">Toda decisión de carrera que realmente sostiene en el tiempo —un cambio, un ascenso, un nuevo comienzo— parte del mismo lugar: conocerte a ti mismo. Antes de pensar en tu próximo cargo, vale la pena detenerte a entender qué te mueve, en qué eres genuinamente bueno y qué todavía necesitas desarrollar. Es el paso que la mayoría se salta, y es justamente el que sostiene a todos los demás.</p>
+  </section>
+  <section style="max-width:720px;margin:0 auto;padding:0 24px 40px;box-sizing:border-box">
+    <div style="background:#fff;border:1px solid #ece7dd;border-radius:14px;padding:36px">
+      <span style="display:inline-block;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#b5601f;font-weight:700;margin-bottom:14px">Empieza aquí</span>
+      <h3 style="font-family:'Newsreader',serif;font-size:19px;color:#24262b;margin:0 0 12px;font-weight:500">Conócete a ti mismo</h3>
+      <p style="color:#5b5f64;font-size:15px;line-height:1.7;margin:0 0 18px">El punto de partida antes de cualquier CV o entrevista: entender qué te mueve, tus fortalezas y tus áreas de aprendizaje.</p>
+      <a class="hk-link-hover" onclick="goLibrary()" style="font-size:14px;font-weight:700;color:#b5601f">Empezar acá →</a>
+      <div style="border-top:1px solid #f1ede5;margin:26px 0 20px"></div>
+      <span style="display:inline-block;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#9a958a;font-weight:700;margin-bottom:12px">Cómo funcionan los recursos</span>
+      <p style="color:#9a958a;font-size:14px;line-height:1.7;margin:0">A partir de aquí vas a encontrar herramientas y contenido sobre distintos temas de tu desarrollo profesional, que se irán liberando de forma gradual — cada cuatro días. No es una limitación técnica: es intencional. Cada recurso está pensado para que le dediques el tiempo suficiente y realmente tenga efecto, en vez de revisarlo por encima y pasar al siguiente. El desarrollo de carrera no se acelera consumiendo más contenido — se sostiene en la profundidad que le das a cada paso.</p>
+    </div>
+  </section>
+
+  <section style="max-width:720px;margin:0 auto;padding:24px 24px 0;box-sizing:border-box">
+    <span style="display:inline-block;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#b5601f;font-weight:700;margin-bottom:16px">Otros caminos</span>
+    <h2 style="font-family:'Newsreader',serif;font-size:25px;color:#24262b;margin:0 0 24px;font-weight:500">Si ya tienes claro por dónde partir</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;margin-bottom:40px">
+      <div style="background:#fff;border:1px solid #ece7dd;border-radius:14px;padding:28px">
+        <span style="display:inline-block;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#b5601f;font-weight:700;margin-bottom:12px">En transición</span>
+        <p style="font-family:'Newsreader',serif;font-size:18px;color:#24262b;margin:0 0 10px;font-weight:500">Programa Outplacement</p>
+        <p style="color:#767b82;font-size:14px;line-height:1.6;margin:0 0 16px">Acompañamiento estructurado si estás en proceso de transición laboral, encuentro a encuentro.</p>
+        <a class="hk-link-hover" onclick="goTo('outplacement')" style="font-size:14px;font-weight:700;color:#b5601f">Conocer el programa →</a>
+      </div>
+      <div style="background:#fff;border:1px solid #ece7dd;border-radius:14px;padding:28px">
+        <span style="display:inline-block;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#b5601f;font-weight:700;margin-bottom:12px">Crecer</span>
+        <p style="font-family:'Newsreader',serif;font-size:18px;color:#24262b;margin:0 0 10px;font-weight:500">Coaching Ejecutivo</p>
+        <p style="color:#767b82;font-size:14px;line-height:1.6;margin:0 0 16px">Desarrollo de liderazgo y habilidades directivas con metodologías de coaching profesional.</p>
+        <a class="hk-link-hover" onclick="goTo('coaching')" style="font-size:14px;font-weight:700;color:#b5601f">Conocer el programa →</a>
+      </div>
+    </div>
+  </section>
+
+  <section style="max-width:600px;margin:0 auto;padding:40px 24px 96px;text-align:center;box-sizing:border-box;border-top:1px solid #ece7dd">
+    <p style="color:#5b5f64;font-size:15px;line-height:1.75;margin:32px 0 20px">Esta comunidad crece contigo. Vuelve cuando quieras, mantén tu perfil actualizado y escríbenos si necesitas orientación en cualquier momento — estés buscando trabajo o no.</p>
+    <p style="font-family:'Newsreader',serif;font-style:italic;font-size:16px;color:#b5601f;margin:0">— El equipo de HK Human Capital</p>
   </section>`;
+}
+
+function renderConfirmation(){
+  return renderWelcomeContent(state.form.nombre || '');
+}
+
+let communityNameFetchAttempted = false;
+
+function renderCommunityWelcome(){
+  if (!hasResourceAccess()) return renderLibraryGate();
+  if (!state.form.nombre && !communityNameFetchAttempted && !isAdminSession){
+    communityNameFetchAttempted = true;
+    loadCommunityFirstName();
+  }
+  return renderWelcomeContent(state.form.nombre || '');
+}
+
+async function loadCommunityFirstName(){
+  const email = localStorage.getItem(COMMUNITY_ACCESS_KEY);
+  if (!email) return;
+  const { data, error } = await supabaseClient.rpc('get_community_first_name', { check_email: email });
+  if (!error && data){
+    state.form.nombre = data;
+    if (state.page === 'community') renderMain();
+  }
 }
 
 const COMMUNITY_ACCESS_KEY = 'hk_community_email';
@@ -832,7 +886,7 @@ function hasResourceAccess(){
 
 function clearCommunityAccess(){
   localStorage.removeItem(COMMUNITY_ACCESS_KEY);
-  goTo('library');
+  goTo(state.page);
 }
 
 async function verifyCommunityAccess(){
@@ -851,7 +905,7 @@ async function verifyCommunityAccess(){
   }
   if (data){
     localStorage.setItem(COMMUNITY_ACCESS_KEY, email.toLowerCase());
-    goTo('library');
+    goTo(state.page);
     return;
   }
   msg.style.color = '#c0392b';
@@ -859,9 +913,10 @@ async function verifyCommunityAccess(){
 }
 
 function renderLibraryGate(){
+  const eyebrow = state.page === 'community' ? 'Comunidad de Talento HK' : 'Biblioteca de recursos';
   return `
   <section style="max-width:480px;margin:0 auto;padding:96px 24px;box-sizing:border-box;text-align:center">
-    <span style="display:inline-block;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#1d6f9c;font-weight:600;margin-bottom:16px">Biblioteca de recursos</span>
+    <span style="display:inline-block;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#1d6f9c;font-weight:600;margin-bottom:16px">${eyebrow}</span>
     <h1 style="font-family:'Newsreader',serif;font-size:28px;color:#24262b;margin:0 0 12px;font-weight:500">Contenido exclusivo para la Comunidad HK</h1>
     <p style="color:#767b82;font-size:15px;line-height:1.65;margin:0 0 28px">Este contenido está disponible para quienes ya forman parte de la Comunidad de Talento HK. Ingresa el correo con el que te uniste para acceder.</p>
     <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px;text-align:left">Correo electrónico</label>
@@ -1761,6 +1816,7 @@ function renderMain(){
     landing: renderLanding, form1: renderForm1, form2: renderForm2,
     confirmation: renderConfirmation, library: renderLibrary, detail: renderDetail,
     nosotros: renderNosotros, outplacement: renderOutplacementProgram, coaching: renderCoaching,
+    community: renderCommunityWelcome,
   };
   document.getElementById('main').innerHTML = map[state.page]();
 }
