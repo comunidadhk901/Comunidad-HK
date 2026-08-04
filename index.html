@@ -179,6 +179,27 @@
   </div>
 </div>
 
+<div id="add-resource-modal" style="display:none;position:fixed;inset:0;background:rgba(36,38,43,0.55);z-index:100;align-items:center;justify-content:center;padding:24px" onclick="if(event.target===this) closeAddResourceModal()">
+  <div style="background:#fff;border-radius:8px;max-width:520px;width:100%;max-height:85vh;overflow-y:auto;padding:36px;position:relative;box-sizing:border-box">
+    <button onclick="closeAddResourceModal()" aria-label="Cerrar" style="position:absolute;top:16px;right:16px;background:none;border:none;font-size:20px;color:#9a958a;cursor:pointer;line-height:1;padding:4px">×</button>
+    <h2 style="font-family:'Newsreader',serif;font-size:22px;color:#24262b;margin:0 0 20px;font-weight:500">Agregar recurso</h2>
+    <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Título</label>
+    <input class="hk-input" id="anew-title" type="text" style="width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;margin-bottom:16px" />
+    <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Categoría</label>
+    <input class="hk-input" id="anew-category" list="anew-category-list" type="text" placeholder="Ej: Currículum" style="width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;margin-bottom:16px" />
+    <datalist id="anew-category-list"></datalist>
+    <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Tipo</label>
+    <input class="hk-input" id="anew-type" list="anew-type-list" type="text" placeholder="Ej: Artículo, Guía, Video, Plantilla" style="width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;margin-bottom:16px" />
+    <datalist id="anew-type-list"></datalist>
+    <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Descripción breve (se muestra en la tarjeta)</label>
+    <textarea id="anew-desc" rows="2" style="width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;margin-bottom:16px;resize:vertical;font-family:'Public Sans',sans-serif"></textarea>
+    <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Cuerpo</label>
+    <textarea id="anew-body" rows="8" style="width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;margin-bottom:16px;resize:vertical;font-family:'Public Sans',sans-serif"></textarea>
+    <button onclick="submitAddResource()" style="width:100%;background:#E17B2F;color:#fff;border:none;padding:14px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Crear recurso</button>
+    <p id="anew-msg" style="font-size:13px;margin:14px 0 0;display:none"></p>
+  </div>
+</div>
+
 <script>
 const SUPABASE_URL = 'https://dqxmcqenqedehlorvwms.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxeG1jcWVucWVkZWhsb3J2d21zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4MzY5ODcsImV4cCI6MjEwMDQxMjk4N30.Njcl2RwJmhs5CudI-um0Aoj0iQPOPRd_jezlkUnVO3A';
@@ -253,7 +274,6 @@ function handleHeroFileDrop(e){
   uploadHeroFile(e.dataTransfer.files && e.dataTransfer.files[0]);
 }
 
-const CATEGORIES_GENERAL = ['Currículum','Entrevistas','Liderazgo','Desarrollo de carrera','Transición laboral','Mercado laboral','Negociación y renta'];
 const AREAS_INTERES = ['Outplacement','Coaching','Búsqueda laboral','Transición laboral'];
 
 const PROGRAMS = [
@@ -277,7 +297,7 @@ const PROGRAMS = [
   },
 ];
 
-const RESOURCES_GENERAL = [
+let RESOURCES_GENERAL = [
   {id:2, slug:'cv-guide', enabled:true, category:'Currículum', type:'Guía', title:'Cómo actualizar tu CV', desc:'Una guía práctica para ordenar tu experiencia y destacar logros relevantes para roles de liderazgo.', downloadable:true,
     bodyOne:'Un CV ejecutivo debe priorizar resultados por sobre funciones. Cuantifica el impacto de tu gestión: crecimiento, eficiencia, equipos liderados.',
     bodyTwo:'Mantén un formato limpio y de una a dos páginas. Actualízalo cada seis meses, incluso si no estás buscando un cambio activamente.'},
@@ -349,7 +369,7 @@ const state = {
   formError: '',
   search: '',
   selectedCategory: 'Todas',
-  selectedResourceId: 1,
+  selectedResourceSlug: 'cv-guide',
 };
 
 function esc(s){
@@ -427,7 +447,7 @@ function resourceCardOpen(item, cardClass, titleSize){
   if (item.enabled === false){
     if (isAdminSession){
       return `
-      <div onclick="openResource(${item.id})" class="hk-card-hover" style="cursor:pointer;background:#faf8f4;border:1px dashed #d8d2c6;border-radius:6px;padding:28px;display:flex;flex-direction:column;gap:12px">
+      <div onclick="openResource('${item.slug}')" class="hk-card-hover" style="cursor:pointer;background:#faf8f4;border:1px dashed #d8d2c6;border-radius:6px;padding:28px;display:flex;flex-direction:column;gap:12px">
         <p style="font-family:'Newsreader',serif;font-size:${titleSize||19}px;color:#24262b;margin:0;font-weight:500;line-height:1.3">${esc(item.title)}</p>
         <span style="align-self:flex-start;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9a958a;font-weight:700;background:#f1ede5;padding:4px 10px;border-radius:12px">Por habilitar · clic para editar</span>
       </div>`;
@@ -447,7 +467,7 @@ function resourceCardOpen(item, cardClass, titleSize){
       </div>
       <p style="font-family:'Newsreader',serif;font-size:${titleSize||19}px;color:#24262b;margin:0;font-weight:500;line-height:1.3">${esc(item.title)}</p>
       <p style="font-size:14px;color:#767b82;margin:0;line-height:1.55;flex:1">${esc(item.desc)}</p>
-      <button onclick="openResource(${item.id})" style="align-self:flex-start;background:none;border:none;color:#E17B2F;font-weight:600;font-size:14px;cursor:pointer;padding:0;margin-top:4px">Ver contenido →</button>
+      <button onclick="openResource('${item.slug}')" style="align-self:flex-start;background:none;border:none;color:#E17B2F;font-weight:600;font-size:14px;cursor:pointer;padding:0;margin-top:4px">Ver contenido →</button>
     </div>`;
 }
 
@@ -816,6 +836,9 @@ function renderLibrary(){
     <h1 style="font-family:'Newsreader',serif;font-size:32px;color:#24262b;margin:0 0 12px;font-weight:500">Biblioteca de recursos</h1>
     <p style="color:#767b82;font-size:16px;margin:0 0 12px;max-width:640px;line-height:1.6">Muy pronto encontrarás artículos, videos, guías y plantillas con contenido práctico para acompañarte en cada etapa de tu desarrollo profesional y ayudarte a enfrentar nuevos desafíos laborales.</p>
     ${!isAdminSession ? `<p style="font-size:13px;color:#9a958a;margin:0 0 24px">Accediste como ${esc(localStorage.getItem(COMMUNITY_ACCESS_KEY) || '')} · <a class="hk-link-hover" onclick="clearCommunityAccess()" style="font-weight:600">¿No eres tú?</a></p>` : ''}
+    ${isAdminSession ? `
+    <button onclick="openAddResourceModal()" style="background:#24262b;color:#fff;border:none;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:16px">+ Agregar recurso</button>
+    <p id="library-admin-msg" style="font-size:13px;margin:0 0 16px;display:none"></p>` : ''}
     <input class="hk-input" id="library-search" value="${esc(state.search)}" oninput="onLibrarySearch(this.value)" type="text" placeholder="Buscar por título o tema..." style="${inputStyle}margin-bottom:24px" />
     <div id="category-chips" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:40px">
       ${categoryChipsHtml()}
@@ -827,7 +850,8 @@ function renderLibrary(){
 }
 
 function categoryChipsHtml(){
-  return ['Todas', ...CATEGORIES_GENERAL].map(c => {
+  const cats = [...new Set(RESOURCES_GENERAL.map(r => r.category).filter(Boolean))];
+  return ['Todas', ...cats].map(c => {
     const selected = c === state.selectedCategory;
     return selected
       ? `<button class="hk-chip" onclick="setCategory('${esc(c)}')" style="background:#24262b;color:#fff;border:1px solid #24262b;padding:9px 16px;border-radius:20px;font-size:13px;font-weight:600">${esc(c)}</button>`
@@ -843,8 +867,22 @@ function libraryResultsHtml(){
   if (filtered.length === 0){
     return `<p style="color:#767b82;font-size:15px;padding:40px 0;text-align:center">No encontramos recursos que coincidan con tu búsqueda.</p>`;
   }
+  const canReorder = isAdminSession && state.selectedCategory === 'Todas' && state.search.trim() === '';
   return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px">
-    ${filtered.map(item => resourceCardOpen(item, '')).join('')}
+    ${filtered.map(item => {
+      const card = resourceCardOpen(item, '');
+      if (!canReorder) return card;
+      const idx = RESOURCES_GENERAL.findIndex(x => x.slug === item.slug);
+      const isFirst = idx <= 0;
+      const isLast = idx === -1 || idx >= RESOURCES_GENERAL.length - 1;
+      return `<div style="position:relative">
+        <div style="position:absolute;top:10px;right:10px;z-index:3;display:flex;gap:4px">
+          <button onclick="event.stopPropagation();moveResource('${item.slug}','up')" ${isFirst ? 'disabled' : ''} title="Subir" style="background:rgba(255,255,255,0.92);border:1px solid #d8d2c6;border-radius:4px;width:26px;height:26px;cursor:${isFirst ? 'default' : 'pointer'};opacity:${isFirst ? 0.35 : 1};font-size:12px;line-height:1">▲</button>
+          <button onclick="event.stopPropagation();moveResource('${item.slug}','down')" ${isLast ? 'disabled' : ''} title="Bajar" style="background:rgba(255,255,255,0.92);border:1px solid #d8d2c6;border-radius:4px;width:26px;height:26px;cursor:${isLast ? 'default' : 'pointer'};opacity:${isLast ? 0.35 : 1};font-size:12px;line-height:1">▼</button>
+        </div>
+        ${card}
+      </div>`;
+    }).join('')}
   </div>`;
 }
 
@@ -859,8 +897,8 @@ function setCategory(cat){
   document.getElementById('library-results').innerHTML = libraryResultsHtml();
 }
 
-function openResource(id){
-  state.selectedResourceId = id;
+function openResource(slug){
+  state.selectedResourceSlug = slug;
   goTo('detail');
 }
 
@@ -932,8 +970,8 @@ function renderCoaching(){
 
 function renderDetail(){
   if (!hasResourceAccess()) return renderLibraryGate();
-  const r = RESOURCES_GENERAL.find(x => x.id === state.selectedResourceId) || RESOURCES_GENERAL[0];
-  const related = RESOURCES_GENERAL.filter(x => x.category === r.category && x.id !== r.id && x.enabled !== false).slice(0,3);
+  const r = RESOURCES_GENERAL.find(x => x.slug === state.selectedResourceSlug) || RESOURCES_GENERAL[0];
+  const related = RESOURCES_GENERAL.filter(x => x.category === r.category && x.slug !== r.slug && x.enabled !== false).slice(0,3);
   return `
   <section style="max-width:760px;margin:0 auto;padding:48px 24px 24px;box-sizing:border-box">
     <a class="hk-link-hover" onclick="goLibrary()" style="font-size:13px;font-weight:600">← Biblioteca de recursos</a>
@@ -945,6 +983,7 @@ function renderDetail(){
         <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
           <button onclick="openResourceEditModal('${r.slug}')" style="background:#fdf1e6;color:#b5601f;border:1px solid #f5d9b8;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer">Editar contenido</button>
           <button onclick="toggleResourceEnabled('${r.slug}')" style="background:${r.enabled === false ? '#E17B2F' : '#fff'};color:${r.enabled === false ? '#fff' : '#24262b'};border:1px solid ${r.enabled === false ? '#E17B2F' : '#d8d2c6'};padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer">${r.enabled === false ? 'Habilitar' : 'Deshabilitar'}</button>
+          <button onclick="confirmDeleteResource('${r.slug}')" style="background:#fff;color:#c0392b;border:1px solid #eecece;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer">Eliminar recurso</button>
         </div>` : ''}
     </div>
     ${r.slug && isAdminSession ? `<p id="toggle-msg" style="font-size:13px;margin:0 0 16px;display:none"></p>` : ''}
@@ -961,7 +1000,7 @@ function renderDetail(){
         <div class="hk-card-hover-sm" style="background:#fff;border:1px solid #ece7dd;border-radius:6px;padding:22px;display:flex;flex-direction:column;gap:10px">
           <span style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#b5601f;font-weight:700;background:#fdf1e6;padding:4px 10px;border-radius:12px;align-self:flex-start">${esc(item.type)}</span>
           <p style="font-family:'Newsreader',serif;font-size:16px;color:#24262b;margin:0;font-weight:500;line-height:1.3">${esc(item.title)}</p>
-          <button onclick="openResource(${item.id})" style="align-self:flex-start;background:none;border:none;color:#E17B2F;font-weight:600;font-size:13px;cursor:pointer;padding:0">Ver contenido →</button>
+          <button onclick="openResource('${item.slug}')" style="align-self:flex-start;background:none;border:none;color:#E17B2F;font-weight:600;font-size:13px;cursor:pointer;padding:0">Ver contenido →</button>
         </div>`).join('')}
     </div>
   </section>` : ''}`;
@@ -1074,6 +1113,122 @@ async function toggleResourceEnabled(slug){
   renderMain();
 }
 
+function showLibraryAdminMsg(text, isError){
+  const msg = document.getElementById('library-admin-msg');
+  if (!msg) return;
+  msg.style.display = 'block';
+  msg.style.color = isError ? '#c0392b' : '#1d6f9c';
+  msg.textContent = text;
+}
+
+function confirmDeleteResource(slug){
+  const r = RESOURCES_GENERAL.find(x => x.slug === slug);
+  if (!r) return;
+  if (!confirm('¿Eliminar "' + r.title + '"? Esta acción no se puede deshacer.')) return;
+  deleteResource(slug);
+}
+
+async function deleteResource(slug){
+  const { error } = await supabaseClient.from('resource_content').delete().eq('slug', slug);
+  if (error){
+    const msg = document.getElementById('toggle-msg');
+    if (msg){ msg.style.display = 'block'; msg.style.color = '#c0392b'; msg.textContent = 'No se pudo eliminar: ' + error.message; }
+    return;
+  }
+  try { await supabaseClient.storage.from('site-assets').remove(['cover-' + slug, 'guide-' + slug]); } catch (e) {}
+  RESOURCES_GENERAL = RESOURCES_GENERAL.filter(x => x.slug !== slug);
+  goLibrary();
+}
+
+async function moveResource(slug, direction){
+  const idx = RESOURCES_GENERAL.findIndex(x => x.slug === slug);
+  if (idx === -1) return;
+  const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= RESOURCES_GENERAL.length) return;
+
+  const a = RESOURCES_GENERAL[idx];
+  const b = RESOURCES_GENERAL[swapIdx];
+  const orderA = a.sortOrder != null ? a.sortOrder : idx;
+  const orderB = b.sortOrder != null ? b.sortOrder : swapIdx;
+
+  const [{ error: e1 }, { error: e2 }] = await Promise.all([
+    supabaseClient.from('resource_content').upsert({ slug: a.slug, title: a.title, desc_text: a.desc, body_one: a.bodyOne || '', body_two: null, category: a.category, "type": a.type, enabled: a.enabled, sort_order: orderB }),
+    supabaseClient.from('resource_content').upsert({ slug: b.slug, title: b.title, desc_text: b.desc, body_one: b.bodyOne || '', body_two: null, category: b.category, "type": b.type, enabled: b.enabled, sort_order: orderA }),
+  ]);
+  if (e1 || e2){
+    showLibraryAdminMsg('No se pudo reordenar: ' + ((e1 && e1.message) || (e2 && e2.message)), true);
+    return;
+  }
+  a.sortOrder = orderB;
+  b.sortOrder = orderA;
+  RESOURCES_GENERAL[idx] = b;
+  RESOURCES_GENERAL[swapIdx] = a;
+  renderMain();
+}
+
+function slugify(text){
+  const base = (text || '').toString().toLowerCase().trim()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'recurso';
+  let slug = base;
+  let n = 1;
+  while (RESOURCES_GENERAL.some(x => x.slug === slug)){
+    n += 1;
+    slug = base + '-' + n;
+  }
+  return slug;
+}
+
+function openAddResourceModal(){
+  const cats = [...new Set(RESOURCES_GENERAL.map(r => r.category).filter(Boolean))];
+  const types = [...new Set(RESOURCES_GENERAL.map(r => r.type).filter(Boolean))];
+  document.getElementById('anew-category-list').innerHTML = cats.map(c => `<option value="${esc(c)}"></option>`).join('');
+  document.getElementById('anew-type-list').innerHTML = types.map(t => `<option value="${esc(t)}"></option>`).join('');
+  document.getElementById('anew-title').value = '';
+  document.getElementById('anew-category').value = '';
+  document.getElementById('anew-type').value = '';
+  document.getElementById('anew-desc').value = '';
+  document.getElementById('anew-body').value = '';
+  document.getElementById('anew-msg').style.display = 'none';
+  document.getElementById('add-resource-modal').style.display = 'flex';
+}
+
+function closeAddResourceModal(){
+  document.getElementById('add-resource-modal').style.display = 'none';
+}
+
+async function submitAddResource(){
+  const title = document.getElementById('anew-title').value.trim();
+  const category = document.getElementById('anew-category').value.trim() || 'General';
+  const type = document.getElementById('anew-type').value.trim() || 'Recurso';
+  const desc = document.getElementById('anew-desc').value.trim();
+  const body = document.getElementById('anew-body').value.trim();
+  const msg = document.getElementById('anew-msg');
+  if (!title || !desc){
+    msg.style.display = 'block'; msg.style.color = '#c0392b';
+    msg.textContent = 'Completa al menos el título y la descripción breve.';
+    return;
+  }
+  const slug = slugify(title);
+  const maxOrder = RESOURCES_GENERAL.reduce((max, r) => Math.max(max, r.sortOrder || 0), 0);
+  const { error } = await supabaseClient.from('resource_content').insert({
+    slug, title, desc_text: desc, body_one: body, body_two: null,
+    category, "type": type, sort_order: maxOrder + 1, enabled: false,
+  });
+  if (error){
+    msg.style.display = 'block'; msg.style.color = '#c0392b';
+    msg.textContent = 'No se pudo crear el recurso: ' + error.message;
+    return;
+  }
+  RESOURCES_GENERAL.push({
+    slug, category, type, title, desc, bodyOne: body, bodyTwo: '', enabled: false,
+    downloadable: false, sortOrder: maxOrder + 1,
+  });
+  closeAddResourceModal();
+  openResource(slug);
+}
+
 async function saveResourceEdit(){
   const title = document.getElementById('redit-title').value.trim();
   const desc = document.getElementById('redit-desc').value.trim();
@@ -1116,24 +1271,48 @@ async function saveResourceEdit(){
 }
 
 async function loadResourceContentOverrides(){
-  const { data } = await supabaseClient.from('resource_content').select('*');
-  if (!data) return;
-  let changed = false;
-  data.forEach(row => {
-    const r = RESOURCES_GENERAL.find(x => x.slug === row.slug);
-    if (r){
-      r.title = row.title; r.desc = row.desc_text;
-      r.bodyOne = row.body_two ? [row.body_one, row.body_two].filter(Boolean).join('\n\n') : row.body_one;
-      r.bodyTwo = '';
-      r.coverUpdatedAt = row.cover_updated_at;
-      r.fileUpdatedAt = row.file_updated_at;
-      r.fileName = row.file_name;
-      r.externalUrl = row.external_url;
-      if (row.enabled !== undefined) r.enabled = row.enabled;
-      changed = true;
-    }
+  let { data, error } = await supabaseClient.from('resource_content').select('*').order('sort_order', { ascending: true, nullsFirst: false });
+  if (error){
+    // "sort_order" (or category/type) puede no existir todavia si no se ha
+    // corrido supabase/resource_manage_schema.sql -- reintenta sin orden.
+    const fallback = await supabaseClient.from('resource_content').select('*');
+    data = fallback.data;
+    error = fallback.error;
+  }
+  if (error || !data) return;
+
+  const fallbackBySlug = {};
+  RESOURCES_GENERAL.forEach(r => { fallbackBySlug[r.slug] = r; });
+
+  const rebuilt = data.map(row => {
+    const fb = fallbackBySlug[row.slug];
+    return {
+      slug: row.slug,
+      category: row.category || (fb ? fb.category : 'General'),
+      type: row.type || (fb ? fb.type : 'Recurso'),
+      title: row.title,
+      desc: row.desc_text,
+      bodyOne: row.body_two ? [row.body_one, row.body_two].filter(Boolean).join('\n\n') : row.body_one,
+      bodyTwo: '',
+      enabled: row.enabled,
+      downloadable: fb ? fb.downloadable : false,
+      coverUpdatedAt: row.cover_updated_at,
+      fileUpdatedAt: row.file_updated_at,
+      fileName: row.file_name,
+      externalUrl: row.external_url,
+      sortOrder: row.sort_order,
+    };
   });
-  if (changed && (state.page === 'library' || state.page === 'detail')) renderMain();
+
+  // Los recursos que todavia no tienen fila en resource_content (por
+  // ejemplo, antes de correr el SQL de siembra) siguen mostrandose con
+  // su contenido por defecto hasta que se cree su fila.
+  RESOURCES_GENERAL.forEach(r => {
+    if (!rebuilt.some(x => x.slug === r.slug)) rebuilt.push(r);
+  });
+
+  RESOURCES_GENERAL = rebuilt;
+  if (state.page === 'library' || state.page === 'detail') renderMain();
 }
 
 function renderAdminLogin(){
