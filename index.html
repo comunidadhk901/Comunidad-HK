@@ -44,6 +44,13 @@
   .hk-card-hover-sm:hover{transform:translateY(-4px);box-shadow:0 12px 24px rgba(225,123,47,0.12);border-color:#f0c9a4 !important;}
   input.hk-input:focus{border-color:#E17B2F !important;outline:none;}
   .hk-chip{font-family:'Public Sans',sans-serif;cursor:pointer;}
+  .hk-resource-body ul, .hk-resource-body ol{margin:0 0 16px;padding-left:22px;}
+  .hk-resource-body li{margin-bottom:8px;}
+  .hk-resource-body p{margin:0 0 16px;}
+  .hk-resource-body p:last-child{margin-bottom:0;}
+  [contenteditable] ul, [contenteditable] ol{margin:0 0 12px;padding-left:22px;}
+  [contenteditable] li{margin-bottom:6px;}
+  [contenteditable]:focus{border-color:#E17B2F !important;outline:none;}
 </style>
 </head>
 <body>
@@ -166,7 +173,14 @@
     <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Descripción breve (se muestra en la tarjeta)</label>
     <textarea id="redit-desc" rows="2" style="width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;margin-bottom:16px;resize:vertical;font-family:'Public Sans',sans-serif"></textarea>
     <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Cuerpo</label>
-    <textarea id="redit-body1" rows="10" style="width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;margin-bottom:16px;resize:vertical;font-family:'Public Sans',sans-serif"></textarea>
+    <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+      <button type="button" onmousedown="event.preventDefault()" onclick="richBold('redit-body1')" style="background:#fff;border:1px solid #d8d2c6;border-radius:4px;width:32px;height:32px;font-weight:700;font-size:14px;cursor:pointer;color:#24262b">B</button>
+      <button type="button" onmousedown="event.preventDefault()" onclick="richBullets('redit-body1')" style="background:#fff;border:1px solid #d8d2c6;border-radius:4px;padding:0 10px;height:32px;font-size:13px;cursor:pointer;color:#24262b">• Lista</button>
+      <button type="button" onmousedown="event.preventDefault()" onclick="richFontSize('redit-body1','15px')" style="background:#fff;border:1px solid #d8d2c6;border-radius:4px;padding:0 10px;height:32px;font-size:12px;cursor:pointer;color:#24262b">Normal</button>
+      <button type="button" onmousedown="event.preventDefault()" onclick="richFontSize('redit-body1','19px')" style="background:#fff;border:1px solid #d8d2c6;border-radius:4px;padding:0 10px;height:32px;font-size:14px;cursor:pointer;color:#24262b">Grande</button>
+      <button type="button" onmousedown="event.preventDefault()" onclick="richFontSize('redit-body1','24px')" style="background:#fff;border:1px solid #d8d2c6;border-radius:4px;padding:0 10px;height:32px;font-size:16px;cursor:pointer;color:#24262b">Muy grande</button>
+    </div>
+    <div id="redit-body1" contenteditable="true" style="width:100%;box-sizing:border-box;min-height:200px;max-height:340px;overflow-y:auto;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;margin-bottom:16px;font-family:'Public Sans',sans-serif;line-height:1.6"></div>
     <div style="border-top:1px solid #f1ede5;padding-top:16px;margin-bottom:16px">
       <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Archivo descargable (PDF o Word, opcional)</label>
       <input type="file" id="redit-file" accept="application/pdf,.doc,.docx" style="width:100%;font-size:14px;margin-bottom:6px" />
@@ -194,7 +208,14 @@
     <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Descripción breve (se muestra en la tarjeta)</label>
     <textarea id="anew-desc" rows="2" style="width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;margin-bottom:16px;resize:vertical;font-family:'Public Sans',sans-serif"></textarea>
     <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Cuerpo</label>
-    <textarea id="anew-body" rows="8" style="width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;margin-bottom:16px;resize:vertical;font-family:'Public Sans',sans-serif"></textarea>
+    <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+      <button type="button" onmousedown="event.preventDefault()" onclick="richBold('anew-body')" style="background:#fff;border:1px solid #d8d2c6;border-radius:4px;width:32px;height:32px;font-weight:700;font-size:14px;cursor:pointer;color:#24262b">B</button>
+      <button type="button" onmousedown="event.preventDefault()" onclick="richBullets('anew-body')" style="background:#fff;border:1px solid #d8d2c6;border-radius:4px;padding:0 10px;height:32px;font-size:13px;cursor:pointer;color:#24262b">• Lista</button>
+      <button type="button" onmousedown="event.preventDefault()" onclick="richFontSize('anew-body','15px')" style="background:#fff;border:1px solid #d8d2c6;border-radius:4px;padding:0 10px;height:32px;font-size:12px;cursor:pointer;color:#24262b">Normal</button>
+      <button type="button" onmousedown="event.preventDefault()" onclick="richFontSize('anew-body','19px')" style="background:#fff;border:1px solid #d8d2c6;border-radius:4px;padding:0 10px;height:32px;font-size:14px;cursor:pointer;color:#24262b">Grande</button>
+      <button type="button" onmousedown="event.preventDefault()" onclick="richFontSize('anew-body','24px')" style="background:#fff;border:1px solid #d8d2c6;border-radius:4px;padding:0 10px;height:32px;font-size:16px;cursor:pointer;color:#24262b">Muy grande</button>
+    </div>
+    <div id="anew-body" contenteditable="true" style="width:100%;box-sizing:border-box;min-height:160px;max-height:340px;overflow-y:auto;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;margin-bottom:16px;font-family:'Public Sans',sans-serif;line-height:1.6"></div>
     <button onclick="submitAddResource()" style="width:100%;background:#E17B2F;color:#fff;border:none;padding:14px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Crear recurso</button>
     <p id="anew-msg" style="font-size:13px;margin:14px 0 0;display:none"></p>
   </div>
@@ -374,6 +395,53 @@ const state = {
 
 function esc(s){
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function richBold(id){
+  document.execCommand('bold');
+}
+
+function richBullets(id){
+  document.execCommand('insertUnorderedList');
+}
+
+function richFontSize(id, px){
+  document.execCommand('fontSize', false, '7');
+  document.querySelectorAll('#' + id + ' font[size="7"]').forEach(el => {
+    const span = document.createElement('span');
+    span.style.fontSize = px;
+    while (el.firstChild) span.appendChild(el.firstChild);
+    el.replaceWith(span);
+  });
+}
+
+function looksLikeHtml(s){
+  return /<[a-z][\s\S]*>/i.test(s || '');
+}
+
+function sanitizeRichHtml(html){
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  div.querySelectorAll('script,style,iframe,object,embed,link,meta,form').forEach(el => el.remove());
+  div.querySelectorAll('*').forEach(el => {
+    [...el.attributes].forEach(attr => {
+      const name = attr.name.toLowerCase();
+      if (name.startsWith('on')) el.removeAttribute(attr.name);
+      if ((name === 'href' || name === 'src') && /^\s*javascript:/i.test(attr.value || '')) el.removeAttribute(attr.name);
+    });
+  });
+  return div.innerHTML;
+}
+
+function resourceBodyEditableHtml(raw){
+  if (looksLikeHtml(raw)) return raw;
+  return esc(raw).replace(/\n/g, '<br>');
+}
+
+function resourceBodyHtml(r){
+  const raw = [r.bodyOne, r.bodyTwo].filter(Boolean).join('\n\n');
+  if (looksLikeHtml(raw)) return sanitizeRichHtml(raw);
+  return esc(raw).replace(/\n/g, '<br>');
 }
 
 const inputStyle = "width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;";
@@ -1083,7 +1151,7 @@ function renderDetail(){
     ${r.slug && isAdminSession ? `<p id="toggle-msg" style="font-size:13px;margin:0 0 16px;display:none"></p>` : ''}
     <h1 style="font-family:'Newsreader',serif;font-size:34px;color:#24262b;margin:0 0 28px;font-weight:500;line-height:1.2">${esc(r.title)}</h1>
     ${resourceCoverHtml(r)}
-    <p style="font-size:17px;line-height:1.75;color:#3f4247;margin:0 0 32px;white-space:pre-line">${esc([r.bodyOne, r.bodyTwo].filter(Boolean).join('\n\n'))}</p>
+    <div class="hk-resource-body" style="font-size:17px;line-height:1.75;color:#3f4247;margin:0 0 32px">${resourceBodyHtml(r)}</div>
     ${resourceDownloadHtml(r)}
   </section>
   ${related.length ? `
@@ -1179,7 +1247,7 @@ function openResourceEditModal(slug){
   currentEditingSlug = slug;
   document.getElementById('redit-title').value = r.title;
   document.getElementById('redit-desc').value = r.desc;
-  document.getElementById('redit-body1').value = r.bodyOne || '';
+  document.getElementById('redit-body1').innerHTML = resourceBodyEditableHtml(r.bodyOne || '');
   document.getElementById('redit-file').value = '';
   document.getElementById('redit-file-current').textContent = r.fileName ? ('Archivo actual: ' + r.fileName) : 'Sin archivo adjunto todavía.';
   document.getElementById('redit-url').value = r.externalUrl || '';
@@ -1283,7 +1351,7 @@ function openAddResourceModal(){
   document.getElementById('anew-category').value = '';
   document.getElementById('anew-type').value = '';
   document.getElementById('anew-desc').value = '';
-  document.getElementById('anew-body').value = '';
+  document.getElementById('anew-body').innerHTML = '';
   document.getElementById('anew-msg').style.display = 'none';
   document.getElementById('add-resource-modal').style.display = 'flex';
 }
@@ -1297,7 +1365,7 @@ async function submitAddResource(){
   const category = document.getElementById('anew-category').value.trim() || 'General';
   const type = document.getElementById('anew-type').value.trim() || 'Recurso';
   const desc = document.getElementById('anew-desc').value.trim();
-  const body = document.getElementById('anew-body').value.trim();
+  const body = sanitizeRichHtml(document.getElementById('anew-body').innerHTML.trim());
   const msg = document.getElementById('anew-msg');
   if (!title || !desc){
     msg.style.display = 'block'; msg.style.color = '#c0392b';
@@ -1326,7 +1394,7 @@ async function submitAddResource(){
 async function saveResourceEdit(){
   const title = document.getElementById('redit-title').value.trim();
   const desc = document.getElementById('redit-desc').value.trim();
-  const body = document.getElementById('redit-body1').value.trim();
+  const body = sanitizeRichHtml(document.getElementById('redit-body1').innerHTML.trim());
   const externalUrl = document.getElementById('redit-url').value.trim();
   const file = document.getElementById('redit-file').files[0];
   const msg = document.getElementById('redit-msg');
