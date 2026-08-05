@@ -257,7 +257,7 @@ async function refreshAdminHeroControl(){
 function renderAdminSessionControl(){
   const html = isAdminSession
     ? `<a class="hk-link-hover" onclick="headerAdminLogout()" style="font-size:13px;color:#9a958a;font-weight:600">Cerrar sesión</a>`
-    : `<a class="hk-link-hover" onclick="goTo('admin')" style="font-size:13px;color:#9a958a;font-weight:600">Acceso administradores</a>`;
+    : `<a class="hk-link-hover" onclick="goTo('admin')" style="font-size:13px;color:#9a958a;font-weight:600">Acceso</a>`;
   const desktop = document.getElementById('admin-session-control');
   if (desktop) desktop.innerHTML = html;
   const mobile = document.getElementById('admin-session-control-mobile');
@@ -1897,7 +1897,7 @@ async function renderAdminAsync(){
 }
 
 function renderMain(){
-  if (state.page === 'admin'){ renderAdminAsync(); return; }
+  if (state.page === 'admin' || (state.page === 'community' && isAdminSession)){ renderAdminAsync(); return; }
   const map = {
     landing: renderLanding, form1: renderForm1, form2: renderForm2,
     confirmation: renderConfirmation, library: renderLibrary, detail: renderDetail,
@@ -1910,7 +1910,7 @@ function renderMain(){
 supabaseClient.auth.onAuthStateChange(async (_event, _session) => {
   if (state.page === 'admin') renderAdminAsync();
   await refreshAdminHeroControl();
-  if (state.page === 'detail') renderMain();
+  if (state.page === 'detail' || state.page === 'community') renderMain();
 });
 
 renderMain();
