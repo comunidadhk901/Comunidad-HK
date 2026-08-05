@@ -919,6 +919,7 @@ function renderLibraryGate(){
     <button id="community-gate-btn" class="hk-btn-primary" onclick="verifyCommunityAccess()" style="width:100%;background:#E17B2F;color:#fff;border:none;padding:15px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Verificar acceso</button>
     <p id="community-gate-msg" style="font-size:14px;margin:16px 0 0;display:none;text-align:left"></p>
     <p style="font-size:14px;color:#767b82;margin:28px 0 0">¿Aún no eres parte de la comunidad? <a class="hk-link-hover" onclick="goForm1()" style="font-weight:600">Únete aquí</a></p>
+    ${state.page === 'community' ? `<p style="font-size:13px;color:#9a958a;margin:12px 0 0">¿Eres administrador? <a class="hk-link-hover" onclick="goTo('admin')" style="font-weight:600">Inicia sesión aquí</a></p>` : ''}
   </section>`;
 }
 
