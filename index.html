@@ -1197,7 +1197,7 @@ function renderLibrary(){
   return `
   <section style="max-width:1240px;margin:0 auto;padding:56px 48px 8px;box-sizing:border-box">
     <h1 style="font-family:'Newsreader',serif;font-size:32px;color:#24262b;margin:0 0 12px;font-weight:500">Biblioteca de recursos</h1>
-    <p style="color:#767b82;font-size:16px;margin:0 0 12px;max-width:640px;line-height:1.6">Muy pronto encontrarás artículos, videos, guías y plantillas con contenido práctico para acompañarte en cada etapa de tu desarrollo profesional y ayudarte a enfrentar nuevos desafíos laborales.</p>
+    <p style="color:#767b82;font-size:16px;margin:0 0 12px;max-width:640px;line-height:1.6">Este espacio estará en constante crecimiento. Además de los recursos disponibles, iremos sumando nuevos artículos, videos, guías y plantillas de forma periódica para seguir acompañándote en tu desarrollo profesional.</p>
     ${!isAdminSession ? `<p style="font-size:13px;color:#9a958a;margin:0 0 24px">Accediste como ${esc(localStorage.getItem(COMMUNITY_ACCESS_KEY) || '')} · <a class="hk-link-hover" onclick="clearCommunityAccess()" style="font-weight:600">¿No eres tú?</a></p>` : ''}
     ${isAdminSession ? `
     <button onclick="openAddResourceModal()" style="background:#24262b;color:#fff;border:none;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:16px">+ Agregar recurso</button>
