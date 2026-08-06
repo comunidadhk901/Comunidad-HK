@@ -418,7 +418,7 @@ const state = {
     nombre:'', apellido:'', email:'', telefono:'', cargo:'', empresa:'', carrera:'',
     linkedin:'', ciudad:'', areaProfesional:'', anios:'', motivacion:'', sinTrabajo:false,
     infoCoaching:false, infoOutplacement:false, infoOtro:'',
-    cvFileName:null, cvFile:null, areasInteres:[], aceptaPrivacidad:false, aceptaComunicaciones:false,
+    cvFileName:null, cvFile:null, areasInteres:[],
   },
   formError: '',
   search: '',
@@ -776,17 +776,6 @@ function renderForm2(){
       </div>
     </div>
 
-    <div style="display:flex;flex-direction:column;gap:18px;padding:24px;background:#fff;border:1px solid #ece7dd;border-radius:6px">
-      <label style="display:flex;align-items:flex-start;gap:12px;cursor:pointer">
-        <input type="checkbox" ${state.form.aceptaPrivacidad?'checked':''} onchange="state.form.aceptaPrivacidad=this.checked" style="margin-top:3px;width:18px;height:18px;accent-color:#E17B2F;flex-shrink:0" />
-        <span style="font-size:14px;color:#3f4247;line-height:1.55">He leído y acepto la política de privacidad de HK Human Capital. *</span>
-      </label>
-      <label style="display:flex;align-items:flex-start;gap:12px;cursor:pointer">
-        <input type="checkbox" ${state.form.aceptaComunicaciones?'checked':''} onchange="state.form.aceptaComunicaciones=this.checked" style="margin-top:3px;width:18px;height:18px;accent-color:#E17B2F;flex-shrink:0" />
-        <span style="font-size:14px;color:#3f4247;line-height:1.55">Quiero recibir contenidos y comunicaciones de HK Human Capital.</span>
-      </label>
-    </div>
-
     <p id="form-error" style="color:#c0392b;font-size:14px;margin:16px 0 0;display:${state.formError?'block':'none'}">${esc(state.formError)}</p>
 
     <div style="display:flex;gap:16px;margin-top:32px">
@@ -823,13 +812,6 @@ function handleCvChange(e){
 }
 
 async function submitForm(){
-  if (!state.form.aceptaPrivacidad){
-    state.formError = 'Debes aceptar la política de privacidad para continuar.';
-    const el = document.getElementById('form-error');
-    el.textContent = state.formError;
-    el.style.display = 'block';
-    return;
-  }
   state.formError = '';
   const btn = document.getElementById('submit-form-btn');
   const errEl = document.getElementById('form-error');
@@ -863,7 +845,7 @@ async function submitForm(){
     motivacion: f.motivacion || null,
     quiere_info_coaching: f.infoCoaching, quiere_info_outplacement: f.infoOutplacement,
     quiere_info_otro: f.infoOtro || null,
-    acepta_privacidad: f.aceptaPrivacidad, acepta_comunicaciones: f.aceptaComunicaciones,
+    acepta_privacidad: true, acepta_comunicaciones: false,
   });
 
   btn.disabled = false;
