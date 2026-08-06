@@ -416,7 +416,7 @@ const state = {
   page: 'landing',
   form: {
     nombre:'', apellido:'', email:'', telefono:'', cargo:'', empresa:'', carrera:'',
-    linkedin:'', ciudad:'', areaProfesional:'', anios:'', motivacion:'',
+    linkedin:'', ciudad:'', areaProfesional:'', anios:'', motivacion:'', sinTrabajo:false,
     infoCoaching:false, infoOutplacement:false, infoOtro:'',
     cvFileName:null, cvFile:null, areasInteres:[], aceptaPrivacidad:false, aceptaComunicaciones:false,
   },
@@ -694,13 +694,22 @@ function renderForm1(){
     <h1 style="font-family:'Newsreader',serif;font-size:30px;margin:10px 0 12px;color:#24262b;font-weight:500">Información personal</h1>
     <p style="color:#767b82;margin:0 0 40px;font-size:15px;line-height:1.6">Cuéntanos un poco sobre ti para comenzar tu perfil en la Comunidad de Talento HK.</p>
 
+    <label style="display:flex;align-items:center;gap:10px;font-size:14px;color:#3f4247;margin:0 0 24px;cursor:pointer">
+      <input type="checkbox" ${state.form.sinTrabajo ? 'checked' : ''} onchange="toggleSinTrabajo(this.checked)" style="width:16px;height:16px;cursor:pointer" />
+      Actualmente no tengo trabajo
+    </label>
+
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px">
       ${formField('Nombre *','nombre',{placeholder:'Tu nombre'})}
       ${formField('Apellido *','apellido',{placeholder:'Tu apellido'})}
       ${formField('Correo electrónico *','email',{type:'email',placeholder:'nombre@empresa.cl'})}
       ${formField('Teléfono *','telefono',{type:'tel',placeholder:'+56 9 1234 5678'})}
-      ${formField('Cargo actual *','cargo',{placeholder:'Ej: Gerente de Operaciones'})}
-      ${formField('Empresa actual *','empresa',{placeholder:'Nombre de tu empresa'})}
+      ${state.form.sinTrabajo
+        ? formField('Último cargo *','cargo',{placeholder:'Ej: Gerente de Operaciones'})
+        : formField('Cargo actual *','cargo',{placeholder:'Ej: Gerente de Operaciones'})}
+      ${state.form.sinTrabajo
+        ? formField('Última empresa *','empresa',{placeholder:'Nombre de tu última empresa'})
+        : formField('Empresa actual *','empresa',{placeholder:'Nombre de tu empresa'})}
       ${formField('Carrera','carrera',{placeholder:'Ej: Ingeniería Comercial'})}
       ${formField('LinkedIn','linkedin',{placeholder:'linkedin.com/in/tu-perfil'})}
       ${formField('Ciudad o país','ciudad',{placeholder:'Ej: Santiago, Chile'})}
@@ -710,6 +719,11 @@ function renderForm1(){
 
     <button class="hk-btn-primary" onclick="goToStep2()" style="width:100%;margin-top:36px;background:#E17B2F;color:#fff;border:none;padding:16px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Continuar</button>
   </section>`;
+}
+
+function toggleSinTrabajo(checked){
+  state.form.sinTrabajo = checked;
+  document.getElementById('main').innerHTML = renderForm1();
 }
 
 function goToStep2(){ goTo('form2'); }
