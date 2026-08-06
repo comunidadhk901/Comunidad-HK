@@ -1751,6 +1751,30 @@ async function markContacted(id, program){
   renderContactQueues();
 }
 
+function confirmDeleteInscrito(id){
+  const r = adminListData.inscripciones.find(x => x.id === id);
+  if (!r) return;
+  if (!confirm('¿Eliminar a ' + r.nombre + ' ' + r.apellido + ' de la comunidad? Esta acción no se puede deshacer.')) return;
+  deleteInscrito(id);
+}
+
+async function deleteInscrito(id){
+  const r = adminListData.inscripciones.find(x => x.id === id);
+  const { error } = await supabaseClient.from('inscripciones').delete().eq('id', id);
+  if (error){
+    const msgEl = document.getElementById('candidate-detail-msg');
+    if (msgEl){ msgEl.style.display = 'block'; msgEl.textContent = 'No se pudo eliminar: ' + error.message; }
+    return;
+  }
+  if (r && r.cv_storage_path){
+    try { await supabaseClient.storage.from('cvs').remove([r.cv_storage_path]); } catch (e) {}
+  }
+  adminListData.inscripciones = adminListData.inscripciones.filter(x => x.id !== id);
+  closeCandidateDetail();
+  renderAdminList();
+  renderContactQueues();
+}
+
 function contactQueueItemHtml(r){
   return `
     <div onclick="openCandidateDetail('${r.id}')" style="cursor:pointer;padding:10px 12px;border-radius:6px;background:#fff;border:1px solid #ece7dd;margin-bottom:8px;transition:all 0.2s ease" class="hk-card-hover">
@@ -1834,6 +1858,9 @@ function openCandidateDetail(id){
         ${pendingCoaching(r) ? `<button onclick="markContacted('${r.id}','coaching')" style="background:#1d6f9c;color:#fff;border:none;padding:12px;border-radius:4px;font-weight:600;font-size:14px;cursor:pointer">Marcar Coaching como contactado</button>` : ''}
         ${pendingOutplacement(r) ? `<button onclick="markContacted('${r.id}','outplacement')" style="background:#b5601f;color:#fff;border:none;padding:12px;border-radius:4px;font-weight:600;font-size:14px;cursor:pointer">Marcar Outplacement como contactado</button>` : ''}
       </div>` : ''}
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid #f1ede5">
+      <button onclick="confirmDeleteInscrito('${r.id}')" style="width:100%;background:#fff;color:#c0392b;border:1px solid #eecece;padding:12px;border-radius:4px;font-weight:600;font-size:14px;cursor:pointer">Eliminar de la comunidad</button>
+    </div>
     <p id="candidate-detail-msg" style="display:none;color:#c0392b;font-size:13px;margin:12px 0 0"></p>
   `;
   document.getElementById('candidate-detail-content').innerHTML = html;
