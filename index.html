@@ -275,9 +275,17 @@ function renderAdminSessionControl(){
   if (mobile) mobile.innerHTML = html;
 }
 
+function clearCommunitySession(){
+  localStorage.removeItem(COMMUNITY_ACCESS_KEY);
+  memberProfile = null;
+  memberProfileLoaded = false;
+  state.communityTab = 'perfil';
+}
+
 async function headerAdminLogout(){
   await supabaseClient.auth.signOut();
   isAdminSession = false;
+  clearCommunitySession();
   renderAdminSessionControl();
   goTo(state.page);
 }
@@ -1710,6 +1718,7 @@ function renderAdminNoAccess(email){
 
 async function adminLogout(){
   await supabaseClient.auth.signOut();
+  clearCommunitySession();
   goTo('admin');
 }
 
