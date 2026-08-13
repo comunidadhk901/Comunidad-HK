@@ -242,7 +242,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const HERO_FALLBACK_URL = 'https://images.unsplash.com/photo-1760611656188-8a1289f7dfb9?w=1600&q=80&auto=format&fit=crop';
-let siteSettings = { heroVersion: null };
+let siteSettings = { heroVersion: null, coachPhotos: {} };
 let isAdminSession = false;
 
 function heroImageUrl(){
@@ -250,10 +250,73 @@ function heroImageUrl(){
   return SUPABASE_URL + '/storage/v1/object/public/site-assets/hero-image?v=' + encodeURIComponent(siteSettings.heroVersion);
 }
 
+function coachPhotoUrl(slug){
+  const v = siteSettings.coachPhotos[slug];
+  if (!v) return null;
+  return SUPABASE_URL + '/storage/v1/object/public/site-assets/coach-' + slug + '?v=' + encodeURIComponent(v);
+}
+
 async function loadSiteSettings(){
-  const { data } = await supabaseClient.from('site_settings').select('*').eq('key', 'hero_image_updated_at').maybeSingle();
-  siteSettings.heroVersion = data ? data.value : null;
+  const { data } = await supabaseClient.from('site_settings').select('*');
+  const rows = data || [];
+  const heroRow = rows.find(r => r.key === 'hero_image_updated_at');
+  siteSettings.heroVersion = heroRow ? heroRow.value : null;
+  siteSettings.coachPhotos = {};
+  rows.forEach(r => {
+    if (r.key.indexOf('coach_photo_') === 0) siteSettings.coachPhotos[r.key.slice('coach_photo_'.length)] = r.value;
+  });
   refreshHeroImageDom();
+  if (state.page === 'coaching') renderMain();
+}
+
+async function uploadCoachPhoto(slug, file){
+  if (!file) return;
+  const msg = document.getElementById('coach-photo-msg-' + slug);
+  if (msg){ msg.style.display = 'block'; msg.style.color = '#767b82'; msg.textContent = 'Subiendo...'; }
+  const { error: upErr } = await supabaseClient.storage.from('site-assets').upload('coach-' + slug, file, { upsert: true, contentType: file.type });
+  if (upErr){
+    if (msg){ msg.style.color = '#c0392b'; msg.textContent = 'No se pudo subir: ' + upErr.message; }
+    return;
+  }
+  const updatedAt = new Date().toISOString();
+  const { error } = await supabaseClient.from('site_settings').upsert({ key: 'coach_photo_' + slug, value: updatedAt, updated_at: updatedAt });
+  if (error){
+    if (msg){ msg.style.color = '#c0392b'; msg.textContent = 'No se pudo guardar: ' + error.message; }
+    return;
+  }
+  siteSettings.coachPhotos[slug] = updatedAt;
+  if (msg) msg.style.display = 'none';
+  renderMain();
+}
+
+function handleCoachPhotoChange(e, slug){
+  uploadCoachPhoto(slug, e.target.files && e.target.files[0]);
+  e.target.value = '';
+}
+
+function coachCardHtml(c){
+  const url = coachPhotoUrl(c.slug);
+  return `
+  <div style="background:#fff;border:1px solid #ece7dd;border-radius:6px;padding:28px;display:flex;gap:20px;align-items:flex-start">
+    <div style="position:relative;width:96px;height:96px;border-radius:50%;overflow:hidden;background:#f1ede5;flex-shrink:0;border:1px solid #ece7dd">
+      ${url
+        ? `<img src="${url}" alt="" style="width:100%;height:100%;object-fit:cover" />`
+        : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#9a958a;font-size:30px;font-family:'Newsreader',serif">${esc(c.name.charAt(0))}</div>`}
+      ${isAdminSession ? `
+        <button onclick="document.getElementById('coach-photo-input-${c.slug}').click()" title="Cambiar foto" style="position:absolute;bottom:0;left:0;right:0;background:rgba(36,38,43,0.72);color:#fff;border:none;padding:6px 0;font-size:10px;font-weight:600;cursor:pointer">Cambiar</button>
+        <input type="file" id="coach-photo-input-${c.slug}" accept="image/*" style="display:none" onchange="handleCoachPhotoChange(event,'${c.slug}')" />
+      ` : ''}
+    </div>
+    <div style="flex:1;min-width:0">
+      <p style="font-family:'Newsreader',serif;font-size:18px;color:#24262b;margin:0 0 4px;font-weight:500">${esc(c.name)}</p>
+      <p style="font-size:13px;color:#b5601f;font-weight:600;margin:0 0 14px">${esc(c.role)}</p>
+      <p style="font-size:13px;color:#767b82;margin:0 0 16px;line-height:1.6">${esc(c.bio)}</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${c.tags.map(t => `<span style="font-size:11px;letter-spacing:0.02em;color:#1d6f9c;background:#eaf3f8;padding:4px 10px;border-radius:10px;font-weight:600">${esc(t)}</span>`).join('')}
+      </div>
+      <p id="coach-photo-msg-${c.slug}" style="display:none;font-size:11px;margin:8px 0 0"></p>
+    </div>
+  </div>`;
 }
 
 async function refreshAdminHeroControl(){
@@ -421,10 +484,10 @@ const RESOURCES_COACHING = [
 ];
 
 const COACHING_TEAM = [
-  {name:'Carolina Weldt', role:'Psicóloga | Executive Coach', bio:'Con más de 20 años de experiencia en consultoría y coaching ejecutivo. Ha acompañado a ejecutivos y equipos en procesos de transición de rol, fortalecimiento del liderazgo y gestión emocional en contextos complejos. Cuenta con diplomados y certificación avanzada en coaching por la Universidad de Chile. Con más de 15 años vinculada a HK Human Capital.', tags:['20+ años de experiencia','Transición de rol','Gestión emocional']},
-  {name:'Fernanda Mackenna', role:'Executive Coach | Liderazgo y Rendimiento', bio:'Coach ejecutiva certificada por IPEC y la International Coaching Federation (ICF - ACC), con más de 10 años de experiencia en consultoría y 6 años especializados en coaching ejecutivo. Es creadora de la metodología Mind Elite, que integra rendimiento de alto desempeño y liderazgo, tomando principios del deporte de élite aplicados al mundo ejecutivo.', tags:['Metodología Mind Elite','Certificación ICF (ACC)','Alto rendimiento']},
-  {name:'Emilio Saavedra', role:'Executive Coach | Neurociencias y Rendimiento', bio:'Máster en Neurociencias con más de 14 años de experiencia en coaching ejecutivo de alto nivel. Especialista en desarrollo de liderazgo, gestión del estrés, innovación y performance empresarial. Ha trabajado con CEOs, directivos y empresarios en Chile, México, España y Estados Unidos. Expositor certificado en Neurociencias Deportivas en el Comité Olímpico de Chile.', tags:['Neurociencias aplicadas','CEOs y directorios','Chile · México · España · EE.UU.']},
-  {name:'Bernardita Briseño', role:'Psicóloga | Coach Organizacional Senior', bio:'Psicóloga y Administradora de Empresas, diplomada en Coaching Ejecutivo por la Pontificia Universidad Católica de Chile y certificada como Coach Organizacional Sistémica. Cuenta con más de 15 años de experiencia en coaching ejecutivo y más de 20 años en consultoría estratégica de personas. Su enfoque es práctico, sistémico y orientado a resultados medibles.', tags:['Coaching sistémico','100+ organizaciones','Orientación a resultados']},
+  {slug:'carolina-weldt', name:'Carolina Weldt', role:'Psicóloga | Executive Coach', bio:'Con más de 20 años de experiencia en consultoría y coaching ejecutivo. Ha acompañado a ejecutivos y equipos en procesos de transición de rol, fortalecimiento del liderazgo y gestión emocional en contextos complejos. Cuenta con diplomados y certificación avanzada en coaching por la Universidad de Chile. Con más de 15 años vinculada a HK Human Capital.', tags:['20+ años de experiencia','Transición de rol','Gestión emocional']},
+  {slug:'fernanda-mackenna', name:'Fernanda Mackenna', role:'Executive Coach | Liderazgo y Rendimiento', bio:'Coach ejecutiva certificada por IPEC y la International Coaching Federation (ICF - ACC), con más de 10 años de experiencia en consultoría y 6 años especializados en coaching ejecutivo. Es creadora de la metodología Mind Elite, que integra rendimiento de alto desempeño y liderazgo, tomando principios del deporte de élite aplicados al mundo ejecutivo.', tags:['Metodología Mind Elite','Certificación ICF (ACC)','Alto rendimiento']},
+  {slug:'emilio-saavedra', name:'Emilio Saavedra', role:'Executive Coach | Neurociencias y Rendimiento', bio:'Máster en Neurociencias con más de 14 años de experiencia en coaching ejecutivo de alto nivel. Especialista en desarrollo de liderazgo, gestión del estrés, innovación y performance empresarial. Ha trabajado con CEOs, directivos y empresarios en Chile, México, España y Estados Unidos. Expositor certificado en Neurociencias Deportivas en el Comité Olímpico de Chile.', tags:['Neurociencias aplicadas','CEOs y directorios','Chile · México · España · EE.UU.']},
+  {slug:'bernardita-briseno', name:'Bernardita Briseño', role:'Psicóloga | Coach Organizacional Senior', bio:'Psicóloga y Administradora de Empresas, diplomada en Coaching Ejecutivo por la Pontificia Universidad Católica de Chile y certificada como Coach Organizacional Sistémica. Cuenta con más de 15 años de experiencia en coaching ejecutivo y más de 20 años en consultoría estratégica de personas. Su enfoque es práctico, sistémico y orientado a resultados medibles.', tags:['Coaching sistémico','100+ organizaciones','Orientación a resultados']},
 ];
 
 const state = {
@@ -1331,16 +1394,8 @@ function renderCoaching(){
   <section style="max-width:1240px;margin:0 auto;padding:40px 48px 8px;box-sizing:border-box">
     <p style="font-size:13px;font-weight:600;color:#24262b;text-transform:uppercase;letter-spacing:0.04em;margin:0 0 8px">Nuestro equipo de coaches</p>
     <p style="color:#9a958a;font-size:13px;margin:0 0 24px;max-width:640px;line-height:1.6">Profesionales certificados, con amplia trayectoria en ejecutivos y organizaciones líderes en Chile y Latinoamérica. Cada proceso se asigna junto a tu coordinador HK según el objetivo, la industria y el estilo de liderazgo.</p>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:24px">
-      ${COACHING_TEAM.map(c => `
-        <div style="background:#fff;border:1px solid #ece7dd;border-radius:6px;padding:28px">
-          <p style="font-family:'Newsreader',serif;font-size:18px;color:#24262b;margin:0 0 4px;font-weight:500">${esc(c.name)}</p>
-          <p style="font-size:13px;color:#b5601f;font-weight:600;margin:0 0 14px">${esc(c.role)}</p>
-          <p style="font-size:13px;color:#767b82;margin:0 0 16px;line-height:1.6">${esc(c.bio)}</p>
-          <div style="display:flex;flex-wrap:wrap;gap:8px">
-            ${c.tags.map(t => `<span style="font-size:11px;letter-spacing:0.02em;color:#1d6f9c;background:#eaf3f8;padding:4px 10px;border-radius:10px;font-weight:600">${esc(t)}</span>`).join('')}
-          </div>
-        </div>`).join('')}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(440px,1fr));gap:24px">
+      ${COACHING_TEAM.map(c => coachCardHtml(c)).join('')}
     </div>
   </section>
 
