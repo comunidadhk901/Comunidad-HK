@@ -1833,18 +1833,35 @@ function infoRequestLabels(r){
 }
 
 async function markContacted(id, program){
-  const field = program === 'coaching' ? 'coaching_contactado' : 'outplacement_contactado';
-  const { error } = await supabaseClient.from('inscripciones').update({ [field]: true }).eq('id', id);
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  const adminEmail = session && session.user ? session.user.email : null;
+  const nowIso = new Date().toISOString();
+  const fields = program === 'coaching'
+    ? { coaching_contactado: true, coaching_contactado_por: adminEmail, coaching_contactado_at: nowIso }
+    : { outplacement_contactado: true, outplacement_contactado_por: adminEmail, outplacement_contactado_at: nowIso };
+  const { error } = await supabaseClient.from('inscripciones').update(fields).eq('id', id);
   if (error){
     const msgEl = document.getElementById('candidate-detail-msg');
     if (msgEl){ msgEl.style.display = 'block'; msgEl.textContent = 'No se pudo actualizar: ' + error.message; }
     return;
   }
   const r = adminListData.inscripciones.find(x => x.id === id);
-  if (r) r[field] = true;
+  if (r) Object.assign(r, fields);
   closeCandidateDetail();
   renderAdminList();
   renderContactQueues();
+}
+
+async function markEnBaseDatos(id){
+  const { error } = await supabaseClient.from('inscripciones').update({ en_base_datos: true }).eq('id', id);
+  if (error){
+    const msgEl = document.getElementById('candidate-detail-msg');
+    if (msgEl){ msgEl.style.display = 'block'; msgEl.textContent = 'No se pudo actualizar: ' + error.message; }
+    return;
+  }
+  const r = adminListData.inscripciones.find(x => x.id === id);
+  if (r) r.en_base_datos = true;
+  openCandidateDetail(id);
 }
 
 function confirmDeleteInscrito(id){
@@ -1949,6 +1966,11 @@ function openCandidateDetail(id){
     ${r.quiere_info_otro ? detailField('Detalle de "otro"', esc(r.quiere_info_otro)) : ''}
     ${detailField('Quiere recibir comunicaciones', r.acepta_comunicaciones ? 'Sí' : 'No')}
     ${detailField('CV', cvLinksHtml(r, adminListData.cvUrls, false))}
+    ${detailField('Usuario en base de datos', r.en_base_datos
+      ? '<span style="color:#1d6f9c;font-weight:600">✓ Usuario en base de datos</span>'
+      : `<button onclick="markEnBaseDatos('${r.id}')" style="background:#fff;color:#1d6f9c;border:1px solid #bcdcee;padding:5px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer">OK</button>`)}
+    ${r.quiere_info_coaching && r.coaching_contactado ? detailField('Coaching', 'Contactado por ' + esc(r.coaching_contactado_por || '—') + (r.coaching_contactado_at ? ' · ' + new Date(r.coaching_contactado_at).toLocaleDateString('es-CL') : '')) : ''}
+    ${r.quiere_info_outplacement && r.outplacement_contactado ? detailField('Outplacement', 'Contactado por ' + esc(r.outplacement_contactado_por || '—') + (r.outplacement_contactado_at ? ' · ' + new Date(r.outplacement_contactado_at).toLocaleDateString('es-CL') : '')) : ''}
     ${(pendingCoaching(r) || pendingOutplacement(r)) ? `
       <div style="display:flex;flex-direction:column;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid #f1ede5">
         ${pendingCoaching(r) ? `<button onclick="markContacted('${r.id}','coaching')" style="background:#1d6f9c;color:#fff;border:none;padding:12px;border-radius:4px;font-weight:600;font-size:14px;cursor:pointer">Marcar Coaching como contactado</button>` : ''}
