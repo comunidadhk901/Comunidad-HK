@@ -242,7 +242,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const HERO_FALLBACK_URL = 'https://images.unsplash.com/photo-1760611656188-8a1289f7dfb9?w=1600&q=80&auto=format&fit=crop';
-let siteSettings = { heroVersion: null, coachPhotos: {} };
+let siteSettings = { heroVersion: null, coachPhotos: {}, socialLayerEnabled: false };
 let isAdminSession = false;
 
 function heroImageUrl(){
@@ -265,8 +265,33 @@ async function loadSiteSettings(){
   rows.forEach(r => {
     if (r.key.indexOf('coach_photo_') === 0) siteSettings.coachPhotos[r.key.slice('coach_photo_'.length)] = r.value;
   });
+  const socialRow = rows.find(r => r.key === 'social_layer_enabled');
+  siteSettings.socialLayerEnabled = !!socialRow && socialRow.value === 'true';
   refreshHeroImageDom();
   if (state.page === 'coaching') renderMain();
+  if (state.page === 'community' && state.communityTab === 'perfil') renderMain();
+}
+
+async function enableSocialLayer(){
+  const msg = document.getElementById('social-layer-msg');
+  const { error } = await supabaseClient.from('site_settings').upsert({ key: 'social_layer_enabled', value: 'true', updated_at: new Date().toISOString() });
+  if (error){
+    if (msg){ msg.style.display = 'block'; msg.style.color = '#c0392b'; msg.textContent = 'No se pudo activar: ' + error.message; }
+    return;
+  }
+  siteSettings.socialLayerEnabled = true;
+  if (state.page === 'admin') renderAdminAsync();
+}
+
+async function disableSocialLayer(){
+  const msg = document.getElementById('social-layer-msg');
+  const { error } = await supabaseClient.from('site_settings').upsert({ key: 'social_layer_enabled', value: 'false', updated_at: new Date().toISOString() });
+  if (error){
+    if (msg){ msg.style.display = 'block'; msg.style.color = '#c0392b'; msg.textContent = 'No se pudo desactivar: ' + error.message; }
+    return;
+  }
+  siteSettings.socialLayerEnabled = false;
+  if (state.page === 'admin') renderAdminAsync();
 }
 
 async function uploadCoachPhoto(slug, file){
@@ -1124,6 +1149,11 @@ function renderMemberProfileContent(){
   if (!memberProfile){
     return `<p style="color:#767b82;font-size:14px">Cargando tu información...</p>`;
   }
+  if (isAdminSession || siteSettings.socialLayerEnabled) return renderMemberProfileV2();
+  return renderMemberProfileLegacy();
+}
+
+function renderMemberProfileLegacy(){
   const p = memberProfile;
   const photoUrl = memberPhotoUrl(p.email, p.foto_updated_at);
   return `
@@ -1207,6 +1237,201 @@ async function saveMemberProfile(btn){
   }
   msg.style.display = 'block'; msg.style.color = '#1d6f9c';
   msg.textContent = 'Cambios guardados.';
+  memberProfileLoaded = false;
+  loadMemberProfile();
+}
+
+let memberProfileEditMode = false;
+let memberProfileEditInterests = [];
+
+const INTERESES_PROFESIONALES_OPTIONS = ['Liderazgo','Networking','Innovación','Ventas','Emprendimiento','Recursos Humanos','Desarrollo profesional'];
+
+function toggleMemberProfileEdit(on){
+  memberProfileEditMode = on;
+  if (on) memberProfileEditInterests = (memberProfile.intereses_profesionales || []).slice();
+  document.getElementById('member-profile-content').innerHTML = renderMemberProfileContent();
+}
+
+function toggleMemberInterestChip(tag){
+  const i = memberProfileEditInterests.indexOf(tag);
+  if (i === -1) memberProfileEditInterests.push(tag); else memberProfileEditInterests.splice(i, 1);
+  const el = document.getElementById('mp-interest-chips');
+  if (el) el.innerHTML = memberInterestChipsHtml(true);
+}
+
+function memberInterestChipsHtml(editable){
+  const selected = editable ? memberProfileEditInterests : (memberProfile.intereses_profesionales || []);
+  if (!editable && selected.length === 0){
+    return `<p style="color:#9a958a;font-size:13px;margin:0">Sin intereses seleccionados.</p>`;
+  }
+  return INTERESES_PROFESIONALES_OPTIONS
+    .filter(tag => editable || selected.includes(tag))
+    .map(tag => {
+      const isOn = selected.includes(tag);
+      const attrs = editable ? `onclick="toggleMemberInterestChip('${esc(tag)}')" style="cursor:pointer;` : `style="`;
+      return isOn
+        ? `<span ${attrs}display:inline-block;font-size:12px;font-weight:600;color:#fff;background:#E17B2F;padding:6px 14px;border-radius:16px;margin:0 6px 6px 0">${esc(tag)}</span>`
+        : `<span ${attrs}display:inline-block;font-size:12px;font-weight:500;color:#3f4247;background:#fff;border:1px solid #d8d2c6;padding:6px 14px;border-radius:16px;margin:0 6px 6px 0">${esc(tag)}</span>`;
+    }).join('');
+}
+
+async function removeMemberPhoto(){
+  const email = localStorage.getItem(COMMUNITY_ACCESS_KEY);
+  if (!email) return;
+  if (!confirm('¿Eliminar tu foto de perfil?')) return;
+  const msg = document.getElementById('mp-photo-msg');
+  const { error } = await supabaseClient.rpc('remove_my_photo', { check_email: email });
+  if (error){
+    if (msg){ msg.style.display = 'block'; msg.style.color = '#c0392b'; msg.textContent = 'No se pudo eliminar: ' + error.message; }
+    return;
+  }
+  memberProfile.foto_updated_at = null;
+  document.getElementById('member-profile-content').innerHTML = renderMemberProfileContent();
+}
+
+function renderMemberProfileV2(){
+  const p = memberProfile;
+  const photoUrl = memberPhotoUrl(p.email, p.foto_updated_at);
+  const editing = memberProfileEditMode;
+  const avatarHtml = `
+    <div style="position:relative;width:88px;height:88px;border-radius:50%;overflow:hidden;background:#f1ede5;flex-shrink:0;border:1px solid #ece7dd">
+      ${photoUrl
+        ? `<img src="${photoUrl}" alt="" style="width:100%;height:100%;object-fit:cover" />`
+        : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#9a958a;font-size:30px;font-family:'Newsreader',serif">${esc((p.nombre || '?').charAt(0).toUpperCase())}</div>`}
+    </div>`;
+
+  const headerHtml = `
+  <div style="display:flex;align-items:center;gap:20px;margin-bottom:20px;flex-wrap:wrap">
+    ${avatarHtml}
+    <div style="flex:1;min-width:0">
+      <p style="font-family:'Newsreader',serif;font-size:22px;color:#24262b;margin:0;font-weight:500">${esc(p.nombre || '')} ${esc(p.apellido || '')}</p>
+      <p style="color:#767b82;font-size:14px;margin:4px 0 0">${esc([p.cargo, p.empresa].filter(Boolean).join(' · ')) || 'Agrega tu cargo y empresa'}</p>
+      ${p.ciudad ? `<p style="color:#9a958a;font-size:13px;margin:4px 0 0">${esc(p.ciudad)}</p>` : ''}
+    </div>
+    ${!editing ? `<button onclick="toggleMemberProfileEdit(true)" style="background:#fff;color:#24262b;border:1px solid #d8d2c6;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer">Editar perfil</button>` : ''}
+  </div>
+  ${editing ? `
+    <div style="margin-bottom:24px">
+      <button onclick="document.getElementById('mp-photo-input').click()" style="background:#fff;color:#24262b;border:1px solid #d8d2c6;padding:8px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;margin-right:8px">Cambiar foto</button>
+      ${photoUrl ? `<button onclick="removeMemberPhoto()" style="background:#fff;color:#c0392b;border:1px solid #eecece;padding:8px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer">Eliminar foto</button>` : ''}
+      <input type="file" id="mp-photo-input" accept="image/*" style="display:none" onchange="handleMemberPhotoChange(event)" />
+      <p id="mp-photo-msg" style="font-size:12px;margin:8px 0 0;display:none"></p>
+    </div>` : ''}`;
+
+  if (!editing){
+    return `
+    <h1 style="font-family:'Newsreader',serif;font-size:26px;color:#24262b;margin:0 0 8px;font-weight:500">Mi perfil</h1>
+    <p style="color:#767b82;font-size:14px;line-height:1.6;margin:0 0 28px">Así te ven los demás miembros de la comunidad. Mantenlo actualizado.</p>
+    ${headerHtml}
+    <div style="border-top:1px solid #f1ede5;padding-top:20px;margin-bottom:20px">
+      <p style="font-size:13px;font-weight:600;color:#24262b;margin:0 0 8px">Sobre mí</p>
+      <p style="font-size:14px;color:${p.bio ? '#3f4247' : '#9a958a'};line-height:1.65;margin:0">${p.bio ? esc(p.bio) : 'Todavía no agregas una descripción.'}</p>
+    </div>
+    <div style="border-top:1px solid #f1ede5;padding-top:20px;margin-bottom:20px">
+      <p style="font-size:13px;font-weight:600;color:#24262b;margin:0 0 12px">Intereses</p>
+      ${memberInterestChipsHtml(false)}
+    </div>
+    <div style="border-top:1px solid #f1ede5;padding-top:20px;margin-bottom:20px">
+      <p style="font-size:13px;font-weight:600;color:#24262b;margin:0 0 8px">Experiencia</p>
+      <p style="font-size:14px;color:#3f4247;margin:0">${esc([p.cargo, p.empresa].filter(Boolean).join(' · ')) || '—'}</p>
+    </div>
+    <div style="border-top:1px solid #f1ede5;padding-top:20px;margin-bottom:20px">
+      <p style="font-size:13px;font-weight:600;color:#24262b;margin:0 0 4px">Información de Comunidad HK</p>
+      ${detailField('Profesión / carrera', esc(p.carrera || '—'))}
+      ${detailField('Años de experiencia', esc(p.anios_experiencia || '—'))}
+      ${detailField('Área profesional', esc(p.area_profesional || '—'))}
+      ${detailField('Ciudad', esc(p.ciudad || '—'))}
+      ${detailField('Motivo de ingreso', esc(p.motivacion || '—'))}
+    </div>
+    <div style="border-top:1px solid #f1ede5;padding-top:20px">
+      <p style="font-size:13px;font-weight:600;color:#24262b;margin:0 0 4px">Privacidad</p>
+      <p style="font-size:14px;color:#3f4247;margin:0">Perfil visible para otros miembros: <strong>${p.perfil_visible === false ? 'No' : 'Sí'}</strong></p>
+    </div>`;
+  }
+
+  return `
+  <h1 style="font-family:'Newsreader',serif;font-size:26px;color:#24262b;margin:0 0 8px;font-weight:500">Editar mi perfil</h1>
+  <p style="color:#767b82;font-size:14px;line-height:1.6;margin:0 0 28px">Mantén tu información actualizada para que nuestro equipo de Executive Search pueda encontrarte.</p>
+  ${headerHtml}
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:16px">
+    ${mpField('mp-nombre', 'Nombre', p.nombre)}
+    ${mpField('mp-apellido', 'Apellido', p.apellido)}
+    ${mpField('mp-telefono', 'Teléfono', p.telefono)}
+    ${mpField('mp-cargo', 'Cargo actual', p.cargo)}
+    ${mpField('mp-empresa', 'Empresa', p.empresa)}
+    ${mpField('mp-carrera', 'Profesión / carrera', p.carrera)}
+    ${mpField('mp-linkedin', 'LinkedIn', p.linkedin)}
+    ${mpField('mp-ciudad', 'Ciudad', p.ciudad)}
+    ${mpField('mp-area', 'Área profesional', p.area_profesional)}
+    ${mpField('mp-anios', 'Años de experiencia', p.anios_experiencia)}
+  </div>
+  <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Correo</label>
+  <input class="hk-input" type="email" value="${esc(p.email || '')}" disabled style="${inputStyle}margin-bottom:20px;background:#f7f5f0;color:#9a958a" />
+  <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Sobre mí</label>
+  <textarea id="mp-bio" rows="3" placeholder="Una breve descripción profesional..." style="width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d8d2c6;border-radius:4px;font-size:15px;color:#24262b;margin-bottom:20px;resize:vertical;font-family:'Public Sans',sans-serif">${esc(p.bio || '')}</textarea>
+  <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">Intereses</label>
+  <div id="mp-interest-chips" style="margin-bottom:20px">${memberInterestChipsHtml(true)}</div>
+  <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:24px">
+    <input type="checkbox" id="mp-visible" ${p.perfil_visible === false ? '' : 'checked'} style="width:18px;height:18px;accent-color:#E17B2F" />
+    <span style="font-size:14px;color:#3f4247">Perfil visible para otros miembros</span>
+  </label>
+  <div style="border-top:1px solid #f1ede5;padding-top:20px;margin-bottom:20px">
+    <label style="display:block;font-size:13px;font-weight:600;color:#24262b;margin-bottom:8px">CV</label>
+    <p style="font-size:13px;color:#767b82;margin:0 0 10px">${p.cv_file_name ? 'Archivo actual: ' + esc(p.cv_file_name) : 'Todavía no has subido tu CV.'}</p>
+    <input type="file" id="mp-cv-file" accept="application/pdf,.doc,.docx" style="font-size:14px" />
+  </div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap">
+    <button onclick="saveMemberProfileV2(this)" style="background:#E17B2F;color:#fff;border:none;padding:14px 28px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Guardar cambios</button>
+    <button onclick="toggleMemberProfileEdit(false)" style="background:transparent;color:#24262b;border:1px solid #d8d2c6;padding:14px 28px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Cancelar</button>
+  </div>
+  <p id="mp-msg" style="font-size:13px;margin:14px 0 0;display:none"></p>`;
+}
+
+async function saveMemberProfileV2(btn){
+  const email = localStorage.getItem(COMMUNITY_ACCESS_KEY);
+  const msg = document.getElementById('mp-msg');
+  if (!email) return;
+  btn.disabled = true;
+  const file = document.getElementById('mp-cv-file').files[0];
+  let cvStoragePath = null, cvFileName = null;
+  if (file){
+    const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+    const path = crypto.randomUUID() + '-' + safeName;
+    const { error: upErr } = await supabaseClient.storage.from('cvs').upload(path, file);
+    if (upErr){
+      btn.disabled = false;
+      msg.style.display = 'block'; msg.style.color = '#c0392b';
+      msg.textContent = 'No se pudo subir tu CV: ' + upErr.message;
+      return;
+    }
+    cvStoragePath = path;
+    cvFileName = file.name;
+  }
+  const { error } = await supabaseClient.rpc('update_my_profile', {
+    check_email: email,
+    p_nombre: document.getElementById('mp-nombre').value.trim() || null,
+    p_apellido: document.getElementById('mp-apellido').value.trim() || null,
+    p_telefono: document.getElementById('mp-telefono').value.trim() || null,
+    p_cargo: document.getElementById('mp-cargo').value.trim() || null,
+    p_empresa: document.getElementById('mp-empresa').value.trim() || null,
+    p_carrera: document.getElementById('mp-carrera').value.trim() || null,
+    p_linkedin: document.getElementById('mp-linkedin').value.trim() || null,
+    p_ciudad: document.getElementById('mp-ciudad').value.trim() || null,
+    p_area_profesional: document.getElementById('mp-area').value.trim() || null,
+    p_anios_experiencia: document.getElementById('mp-anios').value.trim() || null,
+    p_cv_storage_path: cvStoragePath,
+    p_cv_file_name: cvFileName,
+    p_bio: document.getElementById('mp-bio').value.trim() || null,
+    p_intereses_profesionales: memberProfileEditInterests,
+    p_perfil_visible: document.getElementById('mp-visible').checked,
+  });
+  btn.disabled = false;
+  if (error){
+    msg.style.display = 'block'; msg.style.color = '#c0392b';
+    msg.textContent = 'No se pudo guardar: ' + error.message;
+    return;
+  }
+  memberProfileEditMode = false;
   memberProfileLoaded = false;
   loadMemberProfile();
 }
@@ -2133,6 +2358,17 @@ function renderAdminDashboard(email, inscripciones, admins, cvUrls){
         <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">
           ${admins.map(a => `<span style="background:#fff;border:1px solid #ece7dd;padding:6px 12px;border-radius:16px;font-size:13px;color:#3f4247">${esc(a.email)}</span>`).join('')}
         </div>
+      </section>
+
+      <section style="padding:20px 0 4px;box-sizing:border-box">
+        <p style="font-size:13px;font-weight:600;color:#24262b;text-transform:uppercase;letter-spacing:0.04em;margin:0 0 10px">Mi Perfil (nuevo)</p>
+        <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:16px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+          <p style="font-size:13px;color:#767b82;margin:0;max-width:480px">${siteSettings.socialLayerEnabled ? 'Activado: todos los miembros ya ven la versión nueva de "Mi Perfil".' : 'Desactivado: por ahora solo los administradores ven la versión nueva de "Mi Perfil" (entrando a Comunidad). Los miembros siguen viendo el perfil de siempre.'}</p>
+          ${siteSettings.socialLayerEnabled
+            ? `<button onclick="disableSocialLayer()" style="background:#fff;color:#c0392b;border:1px solid #eecece;padding:9px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">Desactivar para todos</button>`
+            : `<button onclick="enableSocialLayer()" style="background:#E17B2F;color:#fff;border:none;padding:9px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">Activar para todos</button>`}
+        </div>
+        <p id="social-layer-msg" style="font-size:12px;margin:8px 0 0;display:none"></p>
       </section>
 
       <section style="padding:24px 0 8px;box-sizing:border-box">
