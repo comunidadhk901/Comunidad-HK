@@ -1932,7 +1932,10 @@ function personCardHtml(r, cvUrls){
     </div>
     ${areas.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px">${areas.map(a => `<span style="font-size:11px;letter-spacing:0.03em;text-transform:uppercase;color:#1d6f9c;background:#eaf3f8;padding:3px 9px;border-radius:10px;font-weight:600">${esc(a)}</span>`).join('')}</div>` : ''}
     ${r.motivacion ? `<p style="font-size:13px;color:#5b5f64;line-height:1.5;margin:0;border-left:2px solid #f0c9a4;padding-left:12px;font-style:italic">"${esc(r.motivacion)}"</p>` : ''}
-    <div style="font-size:13px;padding-top:10px;border-top:1px solid #f1ede5">${cvLinksHtml(r, cvUrls, true)}</div>
+    <div style="font-size:13px;padding-top:10px;border-top:1px solid #f1ede5;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <span>${cvLinksHtml(r, cvUrls, true)}</span>
+      ${r.en_base_datos ? '<span style="font-size:11px;color:#1d6f9c;font-weight:600;white-space:nowrap">✓ Usuario en base de datos</span>' : ''}
+    </div>
   </div>`;
 }
 
