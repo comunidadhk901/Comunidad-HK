@@ -397,6 +397,8 @@ function clearCommunitySession(){
 async function headerAdminLogout(){
   await supabaseClient.auth.signOut();
   isAdminSession = false;
+  comunidadHkVerifiedEmail = null;
+  comunidadHkSessionChecked = false;
   clearCommunitySession();
   renderAdminSessionControl();
   goTo(state.page);
@@ -1317,7 +1319,21 @@ async function removeMemberPhoto(){
   renderMain();
 }
 
+let comunidadHkStats = { connections: 0, groups: 0, posts: 0 };
+let comunidadHkStatsLoaded = false;
+
+async function loadComunidadHkStats(){
+  comunidadHkStatsLoaded = true;
+  const { data, error } = await supabaseClient.rpc('get_my_social_stats');
+  if (!error && data){
+    comunidadHkStats = data;
+    const el = document.getElementById('member-profile-content');
+    if (el) el.innerHTML = renderMemberProfileContent();
+  }
+}
+
 function renderMemberProfileV2(){
+  if (!comunidadHkStatsLoaded) loadComunidadHkStats();
   const p = memberProfile;
   const photoUrl = memberPhotoUrl(p.email, p.foto_updated_at);
   const editing = memberProfileEditMode;
@@ -1351,6 +1367,11 @@ function renderMemberProfileV2(){
     <h1 style="font-family:'Newsreader',serif;font-size:26px;color:#24262b;margin:0 0 8px;font-weight:500">Mi perfil</h1>
     <p style="color:#767b82;font-size:14px;line-height:1.6;margin:0 0 28px">Así te ven los demás miembros de la comunidad. Mantenlo actualizado.</p>
     ${headerHtml}
+    <div style="display:flex;gap:32px;margin-bottom:24px">
+      <div><p style="margin:0;font-size:18px;font-weight:700;color:#24262b">${comunidadHkStats.connections}</p><p style="margin:0;font-size:12px;color:#767b82">Conexiones</p></div>
+      <div><p style="margin:0;font-size:18px;font-weight:700;color:#24262b">${comunidadHkStats.groups}</p><p style="margin:0;font-size:12px;color:#767b82">Grupos</p></div>
+      <div><p style="margin:0;font-size:18px;font-weight:700;color:#24262b">${comunidadHkStats.posts}</p><p style="margin:0;font-size:12px;color:#767b82">Publicaciones</p></div>
+    </div>
     <div style="border-top:1px solid #f1ede5;padding-top:20px;margin-bottom:20px">
       <p style="font-size:13px;font-weight:600;color:#24262b;margin:0 0 8px">Sobre mí</p>
       <p style="font-size:14px;color:${p.bio ? '#3f4247' : '#9a958a'};line-height:1.65;margin:0">${p.bio ? esc(p.bio) : 'Todavía no agregas una descripción.'}</p>
@@ -1477,15 +1498,19 @@ function renderComunidadHKPage(){
   if (!isAdminSession && !siteSettings.socialLayerEnabled){
     return `<section style="max-width:480px;margin:0 auto;padding:96px 24px;text-align:center"><p style="color:#767b82;font-size:15px">Esta sección todavía no está disponible.</p></section>`;
   }
+  if (!isAdminSession && !comunidadHkVerifiedEmail){
+    if (!comunidadHkSessionChecked) checkComunidadHkSession();
+    return renderComunidadHKLogin();
+  }
   const tab = state.comunidadHKTab || 'feed';
   if (tab === 'perfil' && !memberProfileLoaded) loadMemberProfile();
   const linkClass = t => 'hk-social-link' + (tab === t ? ' active' : '');
   let content;
   if (tab === 'perfil') content = renderMemberProfileContent();
-  else if (tab === 'recursos') content = renderLibrary();
   else if (tab === 'outplacement') content = renderOutplacementProgram();
   else if (tab === 'coaching') content = renderCoaching();
   else if (tab === 'feed') content = renderSocialFeed();
+  else if (tab === 'miembros') content = renderComunidadHKMembers();
   else content = comingSoonPanel(SOCIAL_TAB_LABELS[tab] || 'Esta sección');
   const showRightRail = tab === 'feed';
 
@@ -1502,12 +1527,10 @@ function renderComunidadHKPage(){
       <a class="${linkClass('mensajes')}" onclick="setComunidadHKTab('mensajes')">Mensajes</a>
       <a class="${linkClass('notificaciones')}" onclick="setComunidadHKTab('notificaciones')">Notificaciones</a>
       <p style="padding:20px 24px 8px;margin:0;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9a958a;font-weight:700">Comunidad HK</p>
-      <a class="${linkClass('recursos')}" onclick="setComunidadHKTab('recursos')">Recursos</a>
       <a class="${linkClass('outplacement')}" onclick="setComunidadHKTab('outplacement')">Programa Outplacement</a>
       <a class="${linkClass('coaching')}" onclick="setComunidadHKTab('coaching')">Coaching Ejecutivo</a>
       <p style="padding:20px 24px 8px;margin:0;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9a958a;font-weight:700">Explorar</p>
       <a class="${linkClass('miembros')}" onclick="setComunidadHKTab('miembros')">Miembros</a>
-      <a class="${linkClass('publicaciones')}" onclick="setComunidadHKTab('publicaciones')">Publicaciones</a>
       <a class="${linkClass('grupos')}" onclick="setComunidadHKTab('grupos')">Grupos</a>
       <a class="${linkClass('eventos')}" onclick="setComunidadHKTab('eventos')">Eventos</a>
       <div style="padding:20px 24px 8px">
@@ -1527,6 +1550,111 @@ function renderComunidadHKPage(){
       </div>
     </div>
   </div>`;
+}
+
+let comunidadHkVerifiedEmail = null;
+let comunidadHkSessionChecked = false;
+let comunidadHkOtpStep = 'email';
+let comunidadHkOtpEmailInput = '';
+
+async function checkComunidadHkSession(){
+  comunidadHkSessionChecked = true;
+  if (isAdminSession) return;
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session || !session.user || !session.user.email) return;
+  const { data } = await supabaseClient.rpc('is_community_member', { check_email: session.user.email });
+  if (data){
+    comunidadHkVerifiedEmail = session.user.email;
+    if (state.page === 'comunidad-hk') renderMain();
+  }
+}
+
+function renderComunidadHKLogin(){
+  return `
+  <section style="max-width:420px;margin:0 auto;padding:96px 24px;text-align:center">
+    <span style="display:inline-block;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#b5601f;font-weight:700;margin-bottom:16px">Comunidad HK</span>
+    <h1 style="font-family:'Newsreader',serif;font-size:26px;color:#24262b;margin:0 0 12px;font-weight:500">Ingresa con tu correo</h1>
+    <p style="color:#767b82;font-size:14px;line-height:1.6;margin:0 0 28px">Te enviamos un código de un solo uso para verificar que eres tú — necesario para que mensajes y conexiones sean realmente privados.</p>
+    ${comunidadHkOtpStep === 'email' ? `
+      <input class="hk-input" id="chk-otp-email" type="email" placeholder="tu@email.com" style="${inputStyle}margin-bottom:16px" />
+      <button onclick="sendComunidadHkOtp()" class="hk-btn-primary" style="width:100%;background:#E17B2F;color:#fff;border:none;padding:15px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Enviar código</button>
+    ` : `
+      <p style="font-size:13px;color:#767b82;margin:0 0 16px">Enviamos un código a <strong>${esc(comunidadHkOtpEmailInput)}</strong></p>
+      <input class="hk-input" id="chk-otp-code" type="text" inputmode="numeric" maxlength="6" placeholder="123456" style="${inputStyle}margin-bottom:16px;text-align:center;letter-spacing:6px;font-size:20px" />
+      <button onclick="verifyComunidadHkOtp()" class="hk-btn-primary" style="width:100%;background:#E17B2F;color:#fff;border:none;padding:15px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Verificar</button>
+      <p style="margin:14px 0 0"><a onclick="comunidadHkOtpStep='email';document.getElementById('main').innerHTML=renderComunidadHKPage()" style="font-size:13px;color:#767b82;cursor:pointer">← Usar otro correo</a></p>
+    `}
+    <p id="chk-otp-msg" style="font-size:13px;margin:16px 0 0;display:none"></p>
+  </section>`;
+}
+
+async function sendComunidadHkOtp(){
+  const email = document.getElementById('chk-otp-email').value.trim();
+  const msg = document.getElementById('chk-otp-msg');
+  if (!email) return;
+  msg.style.display = 'block'; msg.style.color = '#767b82'; msg.textContent = 'Enviando...';
+  const { error } = await supabaseClient.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+  if (error){
+    msg.style.color = '#c0392b'; msg.textContent = 'No se pudo enviar el código: ' + error.message;
+    return;
+  }
+  comunidadHkOtpEmailInput = email;
+  comunidadHkOtpStep = 'code';
+  document.getElementById('main').innerHTML = renderComunidadHKPage();
+}
+
+async function verifyComunidadHkOtp(){
+  const code = document.getElementById('chk-otp-code').value.trim();
+  const msg = document.getElementById('chk-otp-msg');
+  if (!code) return;
+  msg.style.display = 'block'; msg.style.color = '#767b82'; msg.textContent = 'Verificando...';
+  const { error } = await supabaseClient.auth.verifyOtp({ email: comunidadHkOtpEmailInput, token: code, type: 'email' });
+  if (error){
+    msg.style.color = '#c0392b'; msg.textContent = 'Código incorrecto o vencido: ' + error.message;
+    return;
+  }
+  const { data: memberCheck } = await supabaseClient.rpc('is_community_member', { check_email: comunidadHkOtpEmailInput });
+  if (!memberCheck){
+    msg.style.color = '#c0392b'; msg.textContent = 'Este correo no está registrado en la Comunidad HK.';
+    await supabaseClient.auth.signOut();
+    return;
+  }
+  comunidadHkVerifiedEmail = comunidadHkOtpEmailInput;
+  comunidadHkOtpStep = 'email';
+  renderMain();
+}
+
+let comunidadHkMembersLoaded = false;
+let comunidadHkMembers = [];
+
+async function loadComunidadHkMembers(){
+  comunidadHkMembersLoaded = true;
+  const { data, error } = await supabaseClient.rpc('list_visible_members');
+  if (!error && data){
+    comunidadHkMembers = data;
+    const el = document.getElementById('comunidad-hk-main-column');
+    if (el && state.comunidadHKTab === 'miembros') el.innerHTML = renderComunidadHKMembers();
+  }
+}
+
+function renderComunidadHKMembers(){
+  if (!comunidadHkMembersLoaded) loadComunidadHkMembers();
+  return `
+  <h1 style="font-family:'Newsreader',serif;font-size:24px;color:#24262b;margin:0 0 6px;font-weight:500">Miembros</h1>
+  <p style="color:#767b82;font-size:14px;margin:0 0 24px">Miembros de la comunidad con perfil visible.</p>
+  ${comunidadHkMembers.length === 0
+    ? `<p style="color:#9a958a;font-size:14px">Cargando miembros…</p>`
+    : `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px">
+        ${comunidadHkMembers.map(m => `
+          <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:20px;display:flex;gap:14px;align-items:center">
+            ${m.photo_url ? `<img src="${esc(m.photo_url)}" alt="" style="width:52px;height:52px;border-radius:50%;object-fit:cover;flex-shrink:0" />` : socialAvatarHtml(m.nombre, 52)}
+            <div style="min-width:0">
+              <p style="margin:0;font-size:14px;font-weight:600;color:#24262b">${esc(m.nombre || '')} ${esc(m.apellido || '')}</p>
+              <p style="margin:2px 0 0;font-size:12px;color:#767b82">${esc([m.cargo, m.empresa].filter(Boolean).join(' · '))}</p>
+              ${m.area_profesional ? `<p style="margin:2px 0 0;font-size:11px;color:#9a958a">${esc(m.area_profesional)}</p>` : ''}
+            </div>
+          </div>`).join('')}
+      </div>`}`;
 }
 
 function comunidadHKDisplayName(){
