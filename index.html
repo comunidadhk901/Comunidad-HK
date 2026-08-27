@@ -404,10 +404,15 @@ async function headerAdminLogout(){
   comunidadHkConnectionsLoaded = false;
   comunidadHkConnected = new Set();
   comunidadHkPendingOutgoing = new Set();
+  comunidadHkActiveMembersLoaded = false;
+  comunidadHkActiveMembers = [];
   comunidadHkNotifications = [];
   comunidadHkUnreadCount = 0;
   comunidadHkGroupsLoaded = false;
   comunidadHkGroups = [];
+  comunidadHkViewingGroupId = null;
+  comunidadHkGroupFeedLoaded = false;
+  comunidadHkGroupFeedPosts = [];
   comunidadHkConversationsLoaded = false;
   comunidadHkConversations = [];
   comunidadHkActiveConversationId = null;
@@ -1584,6 +1589,7 @@ function renderComunidadHKPage(){
   else if (tab === 'mensajes') content = renderComunidadHKMessages();
   else if (tab === 'notificaciones'){ content = renderComunidadHKNotifications(); markAllNotificationsRead(); }
   else if (tab === 'perfil-miembro') content = renderViewedMemberProfile();
+  else if (tab === 'grupo-detalle') content = renderGroupDetail();
   else content = comingSoonPanel(SOCIAL_TAB_LABELS[tab] || 'Esta sección');
   const showRightRail = tab === 'feed';
 
@@ -1647,6 +1653,7 @@ async function loadAdminMemberContext(){
   const { data: id } = await supabaseClient.rpc('my_member_id');
   comunidadHkMemberId = id || null;
   if (!comunidadHkMemberId) return;
+  supabaseClient.rpc('touch_last_active');
   const { data: profile } = await supabaseClient.rpc('get_my_profile', { check_email: session.user.email });
   if (profile){
     memberProfile = profile;
@@ -1742,41 +1749,60 @@ async function loadComunidadHkMembers(){
   }
 }
 
+let comunidadHkMembersSearch = '';
+
+function filterBySearch(list, term){
+  const t = (term || '').trim().toLowerCase();
+  if (!t) return list;
+  return list.filter(m => [m.nombre, m.apellido, m.cargo, m.empresa].filter(Boolean).join(' ').toLowerCase().includes(t));
+}
+
+function memberDirectoryCardHtml(m){
+  const name = [m.nombre, m.apellido].filter(Boolean).join(' ');
+  const isMe = m.id === comunidadHkMemberId;
+  const connected = comunidadHkConnected.has(m.id);
+  const pending = comunidadHkPendingOutgoing.has(m.id);
+  let actionHtml = '';
+  if (isMe || connected){
+    actionHtml = '';
+  } else if (pending){
+    actionHtml = `<button disabled style="flex-shrink:0;background:#f1ede5;color:#9a958a;border:1px solid #d8d2c6;padding:6px 14px;border-radius:16px;font-size:11px;font-weight:600;cursor:default">Solicitado</button>`;
+  } else {
+    actionHtml = `<button onclick="toggleConnect('${m.id}','${esc(name)}')" style="flex-shrink:0;background:#fff;color:#E17B2F;border:1px solid #f0c9a4;padding:6px 14px;border-radius:16px;font-size:11px;font-weight:600;cursor:pointer">Conectar</button>`;
+  }
+  return `
+  <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:20px;display:flex;gap:14px;align-items:center">
+    <span onclick="viewMemberProfile('${m.id}')" style="cursor:pointer;flex-shrink:0">
+      ${m.photo_url ? `<img src="${esc(m.photo_url)}" alt="" style="width:52px;height:52px;border-radius:50%;object-fit:cover" />` : socialAvatarHtml(m.nombre, 52)}
+    </span>
+    <div style="min-width:0;flex:1">
+      <p onclick="viewMemberProfile('${m.id}')" style="margin:0;font-size:14px;font-weight:600;color:#24262b;cursor:pointer">${esc(name)}</p>
+      <p style="margin:2px 0 0;font-size:12px;color:#767b82">${esc([m.cargo, m.empresa].filter(Boolean).join(' · '))}</p>
+      ${m.area_profesional ? `<p style="margin:2px 0 0;font-size:11px;color:#9a958a">${esc(m.area_profesional)}</p>` : ''}
+    </div>
+    ${actionHtml}
+  </div>`;
+}
+
+function membersGridHtml(list){
+  if (comunidadHkMembers.length === 0) return `<p style="color:#9a958a;font-size:14px">Cargando miembros…</p>`;
+  if (list.length === 0) return `<p style="color:#9a958a;font-size:14px">No encontramos miembros para esa búsqueda.</p>`;
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px">${list.map(memberDirectoryCardHtml).join('')}</div>`;
+}
+
+function filterMembersSearch(term){
+  comunidadHkMembersSearch = term;
+  const el = document.getElementById('members-grid');
+  if (el) el.innerHTML = membersGridHtml(filterBySearch(comunidadHkMembers, term));
+}
+
 function renderComunidadHKMembers(){
   if (!comunidadHkMembersLoaded) loadComunidadHkMembers();
   return `
   <h1 style="font-family:'Newsreader',serif;font-size:24px;color:#24262b;margin:0 0 6px;font-weight:500">Miembros</h1>
-  <p style="color:#767b82;font-size:14px;margin:0 0 24px">Miembros de la comunidad con perfil visible.</p>
-  ${comunidadHkMembers.length === 0
-    ? `<p style="color:#9a958a;font-size:14px">Cargando miembros…</p>`
-    : `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px">
-        ${comunidadHkMembers.map(m => {
-          const name = [m.nombre, m.apellido].filter(Boolean).join(' ');
-          const isMe = m.id === comunidadHkMemberId;
-          const connected = comunidadHkConnected.has(m.id);
-          const pending = comunidadHkPendingOutgoing.has(m.id);
-          let actionHtml = '';
-          if (isMe || connected){
-            actionHtml = '';
-          } else if (pending){
-            actionHtml = `<button disabled style="flex-shrink:0;background:#f1ede5;color:#9a958a;border:1px solid #d8d2c6;padding:6px 14px;border-radius:16px;font-size:11px;font-weight:600;cursor:default">Solicitado</button>`;
-          } else {
-            actionHtml = `<button onclick="toggleConnect('${m.id}','${esc(name)}')" style="flex-shrink:0;background:#fff;color:#E17B2F;border:1px solid #f0c9a4;padding:6px 14px;border-radius:16px;font-size:11px;font-weight:600;cursor:pointer">Conectar</button>`;
-          }
-          return `
-          <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:20px;display:flex;gap:14px;align-items:center">
-            <span onclick="viewMemberProfile('${m.id}')" style="cursor:pointer;flex-shrink:0">
-              ${m.photo_url ? `<img src="${esc(m.photo_url)}" alt="" style="width:52px;height:52px;border-radius:50%;object-fit:cover" />` : socialAvatarHtml(m.nombre, 52)}
-            </span>
-            <div style="min-width:0;flex:1">
-              <p onclick="viewMemberProfile('${m.id}')" style="margin:0;font-size:14px;font-weight:600;color:#24262b;cursor:pointer">${esc(name)}</p>
-              <p style="margin:2px 0 0;font-size:12px;color:#767b82">${esc([m.cargo, m.empresa].filter(Boolean).join(' · '))}</p>
-              ${m.area_profesional ? `<p style="margin:2px 0 0;font-size:11px;color:#9a958a">${esc(m.area_profesional)}</p>` : ''}
-            </div>
-            ${actionHtml}
-          </div>`;
-        }).join('')}
-      </div>`}`;
+  <p style="color:#767b82;font-size:14px;margin:0 0 20px">Miembros de la comunidad con perfil visible.</p>
+  <input id="members-search-input" type="text" placeholder="Buscar por nombre, cargo o empresa..." value="${esc(comunidadHkMembersSearch)}" oninput="filterMembersSearch(this.value)" style="width:100%;box-sizing:border-box;padding:10px 16px;border:1px solid #d8d2c6;border-radius:20px;font-size:14px;margin-bottom:20px" />
+  <div id="members-grid">${membersGridHtml(filterBySearch(comunidadHkMembers, comunidadHkMembersSearch))}</div>`;
 }
 
 function comunidadHKDisplayName(){
@@ -1893,27 +1919,20 @@ function socialAvatarHtml(name, size, bg){
 }
 
 
-const DUMMY_ACTIVE_PEOPLE = [
-  {name:'María José López', role:'HR Manager en Softtek'},
-  {name:'Andrés Valenzuela', role:'Director Comercial en Abastible'},
-  {name:'Francisca Mardones', role:'Consultora en Innovvo'},
-  {name:'Diego Ramírez', role:'CEO en StartUp Chile'},
-];
+let comunidadHkActiveMembersLoaded = false;
+let comunidadHkActiveMembers = [];
 
-const DUMMY_SUGGESTED_PEOPLE = [
-  {name:'Valentina Torres', role:'Gerente de Marketing en Falabella'},
-  {name:'Sebastián Arancibia', role:'Jefe de Finanzas en Xepelin'},
-  {name:'Daniela Muñoz', role:'Consultora Senior en Deloitte'},
-];
-
-const DUMMY_SUGGESTED_GROUPS = [
-  {name:'Mujeres Líderes', members:156},
-  {name:'Innovación y Tecnología', members:142},
-];
+async function loadComunidadHkActiveMembers(){
+  comunidadHkActiveMembersLoaded = true;
+  const { data, error } = await supabaseClient.rpc('get_active_members', { limit_count: 4 });
+  if (!error && data){
+    comunidadHkActiveMembers = data;
+    refreshComunidadHKRightRail();
+  }
+}
 
 let comunidadHkConnected = new Set();
 let comunidadHkPendingOutgoing = new Set();
-let comunidadHkJoinedGroups = new Set();
 let comunidadHkSelectedInterests = new Set();
 
 let comunidadHkConnectionsLoaded = false;
@@ -1943,6 +1962,34 @@ async function respondConnection(connectionId, accept){
   loadComunidadHkConnections();
 }
 
+let comunidadHkConnectionsSearch = '';
+
+function connectionCardHtml(m){
+  const name = [m.nombre, m.apellido].filter(Boolean).join(' ');
+  return `
+  <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:20px;display:flex;gap:14px;align-items:center">
+    <span onclick="viewMemberProfile('${m.member_id}')" style="cursor:pointer;flex-shrink:0">
+      ${m.photo_url ? `<img src="${esc(m.photo_url)}" style="width:52px;height:52px;border-radius:50%;object-fit:cover" />` : socialAvatarHtml(m.nombre, 52)}
+    </span>
+    <div style="min-width:0;flex:1">
+      <p onclick="viewMemberProfile('${m.member_id}')" style="margin:0;font-size:14px;font-weight:600;color:#24262b;cursor:pointer">${esc(name)}</p>
+      <p style="margin:2px 0 0;font-size:12px;color:#767b82">${esc([m.cargo, m.empresa].filter(Boolean).join(' · '))}</p>
+      ${m.area_profesional ? `<p style="margin:2px 0 0;font-size:11px;color:#9a958a">${esc(m.area_profesional)}</p>` : ''}
+    </div>
+  </div>`;
+}
+
+function connectionsGridHtml(list){
+  if (list.length === 0) return `<p style="color:#9a958a;font-size:14px">No encontramos conexiones para esa búsqueda.</p>`;
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">${list.map(connectionCardHtml).join('')}</div>`;
+}
+
+function filterConnectionsSearch(term){
+  comunidadHkConnectionsSearch = term;
+  const el = document.getElementById('connections-grid');
+  if (el) el.innerHTML = connectionsGridHtml(filterBySearch(comunidadHkConnectionsData.accepted || [], term));
+}
+
 function renderComunidadHKConnections(){
   if (!comunidadHkConnectionsLoaded) loadComunidadHkConnections();
   const accepted = comunidadHkConnectionsData.accepted || [];
@@ -1965,18 +2012,8 @@ function renderComunidadHKConnections(){
         </div>`).join('')}
     </div>` : ''}
   ${accepted.length === 0 ? `<p style="color:#9a958a;font-size:14px">Todavía no tienes conexiones.</p>` : `
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">
-      ${accepted.map(m => `
-        <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:20px;display:flex;gap:14px;align-items:center">
-          ${m.photo_url ? `<img src="${esc(m.photo_url)}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;flex-shrink:0" />` : socialAvatarHtml(m.nombre, 52)}
-          <div style="min-width:0;flex:1">
-            <p style="margin:0;font-size:14px;font-weight:600;color:#24262b">${esc(m.nombre || '')} ${esc(m.apellido || '')}</p>
-            <p style="margin:2px 0 0;font-size:12px;color:#767b82">${esc([m.cargo, m.empresa].filter(Boolean).join(' · '))}</p>
-            ${m.area_profesional ? `<p style="margin:2px 0 0;font-size:11px;color:#9a958a">${esc(m.area_profesional)}</p>` : ''}
-          </div>
-          <button onclick="startConversationWith('${m.member_id}','${esc(m.nombre || '')}')" style="background:#fff;color:#1d6f9c;border:1px solid #cfe3ee;padding:6px 14px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">Mensaje</button>
-        </div>`).join('')}
-    </div>`}`;
+    <input id="connections-search-input" type="text" placeholder="Buscar por nombre, cargo o empresa..." value="${esc(comunidadHkConnectionsSearch)}" oninput="filterConnectionsSearch(this.value)" style="width:100%;box-sizing:border-box;padding:10px 16px;border:1px solid #d8d2c6;border-radius:20px;font-size:14px;margin-bottom:20px" />
+    <div id="connections-grid">${connectionsGridHtml(filterBySearch(accepted, comunidadHkConnectionsSearch))}</div>`}`;
 }
 
 let comunidadHkNotifications = [];
@@ -2172,7 +2209,7 @@ function groupCardHtml(g){
   const isAdmin = g.my_role === 'admin';
   const expanded = comunidadHkExpandedGroupId === g.id;
   let actionBtn;
-  if (g.my_status === 'approved') actionBtn = `<span style="font-size:12px;color:#1d6f9c;font-weight:600">✓ Miembro</span>`;
+  if (g.my_status === 'approved') actionBtn = `<a onclick="viewGroup('${g.id}')" style="font-size:12px;color:#1d6f9c;font-weight:600;cursor:pointer">✓ Miembro · Ver contenido →</a>`;
   else if (g.my_status === 'pending') actionBtn = `<span style="font-size:12px;color:#9a958a;font-weight:600">Solicitud enviada</span>`;
   else if (g.my_status === 'invited') actionBtn = `<button onclick="acceptGroupInvite('${g.id}')" style="background:#E17B2F;color:#fff;border:none;padding:6px 14px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer">Aceptar invitación</button>`;
   else actionBtn = `<button onclick="requestJoinGroup('${g.id}')" style="background:#fff;color:#E17B2F;border:1px solid #f0c9a4;padding:6px 14px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer">Pedir unirse</button>`;
@@ -2244,6 +2281,121 @@ function renderComunidadHKGroups(){
         ${bySector[sector].map(g => groupCardHtml(g)).join('')}
       </div>
     </div>`).join('')}`;
+}
+
+let comunidadHkViewingGroupId = null;
+let comunidadHkGroupFeedLoaded = false;
+let comunidadHkGroupFeedPosts = [];
+let comunidadHkGroupComposerFile = null;
+let comunidadHkGroupComposerMode = null;
+
+function viewGroup(groupId){
+  comunidadHkViewingGroupId = groupId;
+  comunidadHkGroupFeedLoaded = false;
+  comunidadHkGroupFeedPosts = [];
+  comunidadHkGroupComposerFile = null;
+  comunidadHkGroupComposerMode = null;
+  setComunidadHKTab('grupo-detalle');
+}
+
+async function loadGroupFeed(groupId){
+  comunidadHkGroupFeedLoaded = true;
+  const { data, error } = await supabaseClient.rpc('get_group_feed', { gid: groupId });
+  if (!error && data){
+    comunidadHkGroupFeedPosts = data;
+    refreshGroupFeedDom();
+  }
+}
+
+function refreshGroupFeedDom(){
+  const el = document.getElementById('comunidad-hk-main-column');
+  if (el && state.comunidadHKTab === 'grupo-detalle') el.innerHTML = renderGroupDetail();
+}
+
+function clearGroupComposerAttachment(){
+  comunidadHkGroupComposerFile = null;
+  comunidadHkGroupComposerMode = null;
+  refreshGroupFeedDom();
+}
+
+function handleGroupComposerFileChange(e, kind){
+  const file = e.target.files[0];
+  if (!file) return;
+  comunidadHkGroupComposerFile = file;
+  comunidadHkGroupComposerMode = kind;
+  refreshGroupFeedDom();
+}
+
+function renderGroupComposerAttachmentArea(){
+  if (!comunidadHkGroupComposerFile) return '';
+  const url = URL.createObjectURL(comunidadHkGroupComposerFile);
+  const media = comunidadHkGroupComposerMode === 'photo'
+    ? `<img src="${url}" style="max-height:220px;border-radius:8px;display:block;max-width:100%" />`
+    : `<video src="${url}" controls style="max-height:220px;border-radius:8px;display:block;max-width:100%"></video>`;
+  return `<div style="position:relative;margin-bottom:14px">${media}<button onclick="clearGroupComposerAttachment()" style="position:absolute;top:8px;right:8px;background:rgba(36,38,43,0.7);color:#fff;border:none;border-radius:50%;width:26px;height:26px;cursor:pointer">×</button></div>`;
+}
+
+async function publishGroupPost(groupId){
+  if (!comunidadHkMemberId){ showToast('No pudimos identificar tu perfil de miembro'); return; }
+  const btn = document.getElementById('group-composer-publish-btn');
+  const input = document.getElementById('group-composer-input');
+  const text = input ? input.value.trim() : '';
+  if (!text && !comunidadHkGroupComposerFile) return;
+  if (btn) btn.disabled = true;
+
+  let mediaType = null, mediaPath = null;
+  if (comunidadHkGroupComposerFile){
+    mediaType = comunidadHkGroupComposerMode === 'video' ? 'video' : 'photo';
+    const safeName = comunidadHkGroupComposerFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+    const path = comunidadHkMemberId + '/' + crypto.randomUUID() + '-' + safeName;
+    const { error: upErr } = await supabaseClient.storage.from('post-media').upload(path, comunidadHkGroupComposerFile);
+    if (upErr){ showToast('No se pudo subir el archivo: ' + upErr.message); if (btn) btn.disabled = false; return; }
+    mediaPath = path;
+  }
+
+  const { error } = await supabaseClient.from('posts').insert({ author_id: comunidadHkMemberId, text: text || null, media_type: mediaType, media_storage_path: mediaPath, group_id: groupId });
+  if (error){ showToast('No se pudo publicar: ' + error.message); if (btn) btn.disabled = false; return; }
+  comunidadHkGroupComposerFile = null;
+  comunidadHkGroupComposerMode = null;
+  comunidadHkGroupFeedLoaded = false;
+  loadGroupFeed(groupId);
+}
+
+function renderGroupDetail(){
+  const back = `<a onclick="setComunidadHKTab('grupos')" style="font-size:13px;color:#767b82;cursor:pointer">← Volver a Grupos</a>`;
+  const g = comunidadHkGroups.find(x => x.id === comunidadHkViewingGroupId);
+  if (!g) return `${back}<p style="color:#9a958a;font-size:14px;margin-top:20px">Cargando grupo…</p>`;
+  if (g.my_status !== 'approved') return `${back}<p style="color:#9a958a;font-size:14px;margin-top:20px">Debes ser miembro de este grupo para ver su contenido.</p>`;
+  if (!comunidadHkGroupFeedLoaded) loadGroupFeed(g.id);
+  const creatorName = [g.creator_nombre, g.creator_apellido].filter(Boolean).join(' ');
+  return `
+  ${back}
+  <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:20px;margin:16px 0 20px;display:flex;gap:14px;align-items:center">
+    ${g.photo_url ? `<img src="${esc(g.photo_url)}" alt="" style="width:52px;height:52px;border-radius:8px;object-fit:cover;flex-shrink:0" />` : socialAvatarHtml(g.name, 52)}
+    <div style="min-width:0">
+      <p style="margin:0;font-size:18px;font-weight:600;color:#24262b;font-family:'Newsreader',serif">${esc(g.name)}</p>
+      <p style="margin:2px 0 0;font-size:12px;color:#9a958a">${g.member_count} miembro${g.member_count === 1 ? '' : 's'}${creatorName ? ' · Creado por ' + esc(creatorName) : ''}</p>
+    </div>
+  </div>
+  <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:20px;margin-bottom:20px">
+    <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
+      ${socialAvatarHtml(comunidadHKDisplayName(), 40)}
+      <input id="group-composer-input" type="text" placeholder="Escribe algo para el grupo..." onkeydown="if(event.key==='Enter'){publishGroupPost('${g.id}')}" style="flex:1;border:1px solid #ece7dd;background:#faf8f4;border-radius:20px;padding:11px 16px;color:#24262b;font-size:14px" />
+    </div>
+    ${renderGroupComposerAttachmentArea()}
+    <input type="file" id="group-composer-file-photo" accept="image/*" style="display:none" onchange="handleGroupComposerFileChange(event,'photo')" />
+    <input type="file" id="group-composer-file-video" accept="video/*" style="display:none" onchange="handleGroupComposerFileChange(event,'video')" />
+    <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid #f1ede5;padding-top:12px">
+      <div style="display:flex;gap:16px">
+        <span onclick="document.getElementById('group-composer-file-photo').click()" style="font-size:13px;color:#767b82;cursor:pointer">📷 Foto</span>
+        <span onclick="document.getElementById('group-composer-file-video').click()" style="font-size:13px;color:#767b82;cursor:pointer">🎥 Video</span>
+      </div>
+      <button id="group-composer-publish-btn" onclick="publishGroupPost('${g.id}')" style="background:#E17B2F;color:#fff;border:none;padding:8px 20px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer">Publicar</button>
+    </div>
+  </div>
+  ${!comunidadHkGroupFeedLoaded ? `<p style="text-align:center;color:#9a958a;font-size:13px;padding:24px 0">Cargando publicaciones…</p>` : ''}
+  ${comunidadHkGroupFeedLoaded && comunidadHkGroupFeedPosts.length === 0 ? `<p style="text-align:center;color:#9a958a;font-size:13px;padding:24px 0">Todavía no hay publicaciones en este grupo.</p>` : ''}
+  ${comunidadHkGroupFeedPosts.map(post => socialPostCardHtml(post)).join('')}`;
 }
 
 let comunidadHkConversationsLoaded = false;
@@ -2379,6 +2531,7 @@ let comunidadHkMemberId = null;
 async function loadComunidadHkMemberId(){
   const { data } = await supabaseClient.rpc('my_member_id');
   comunidadHkMemberId = data || null;
+  if (comunidadHkMemberId) supabaseClient.rpc('touch_last_active');
 }
 
 let comunidadHkFeedLoaded = false;
@@ -2526,9 +2679,20 @@ async function publishRealPost(){
   loadComunidadHkFeed();
 }
 
+function activeFeedState(){
+  const inGroup = state.comunidadHKTab === 'grupo-detalle';
+  return {
+    posts: inGroup ? comunidadHkGroupFeedPosts : comunidadHkFeedPosts,
+    setPosts: arr => { if (inGroup) comunidadHkGroupFeedPosts = arr; else comunidadHkFeedPosts = arr; },
+    reload: () => inGroup ? loadGroupFeed(comunidadHkViewingGroupId) : loadComunidadHkFeed(),
+    refreshDom: () => inGroup ? refreshGroupFeedDom() : refreshComunidadHKFeed(),
+  };
+}
+
 async function toggleRealLike(postId){
   if (!comunidadHkMemberId) return;
-  const post = comunidadHkFeedPosts.find(p => p.id === postId);
+  const fs = activeFeedState();
+  const post = fs.posts.find(p => p.id === postId);
   if (!post) return;
   if (post.liked_by_me){
     await supabaseClient.from('post_likes').delete().eq('post_id', postId).eq('member_id', comunidadHkMemberId);
@@ -2538,16 +2702,17 @@ async function toggleRealLike(postId){
     post.liked_by_me = true; post.like_count += 1;
     notifyMember(post.author_id, 'like', comunidadHKDisplayName() + ' le dio like a tu publicación');
   }
-  refreshComunidadHKFeed();
+  fs.refreshDom();
 }
 
 async function deletePost(postId){
   if (!confirm('¿Eliminar esta publicación? Esta acción no se puede deshacer.')) return;
   const { error } = await supabaseClient.from('posts').delete().eq('id', postId);
   if (error){ showToast('No se pudo eliminar: ' + error.message); return; }
-  comunidadHkFeedPosts = comunidadHkFeedPosts.filter(p => p.id !== postId);
+  const fs = activeFeedState();
+  fs.setPosts(fs.posts.filter(p => p.id !== postId));
   showToast('Publicación eliminada');
-  refreshComunidadHKFeed();
+  fs.refreshDom();
 }
 
 async function sharePost(postId){
@@ -2556,7 +2721,7 @@ async function sharePost(postId){
   if (error){ showToast('No se pudo compartir: ' + error.message); return; }
   showToast('Publicación compartida en tu perfil');
   comunidadHkFeedLoaded = false;
-  loadComunidadHkFeed();
+  if (state.comunidadHKTab === 'feed') loadComunidadHkFeed();
 }
 
 async function addRealComment(postId){
@@ -2566,9 +2731,41 @@ async function addRealComment(postId){
   if (!text) return;
   const { error } = await supabaseClient.from('post_comments').insert({ post_id: postId, author_id: comunidadHkMemberId, text });
   if (error){ showToast('No se pudo comentar: ' + error.message); return; }
-  const post = comunidadHkFeedPosts.find(p => p.id === postId);
+  const fs = activeFeedState();
+  const post = fs.posts.find(p => p.id === postId);
   notifyMember(post ? post.author_id : null, 'comment', comunidadHKDisplayName() + ' comentó tu publicación');
-  loadComunidadHkFeed();
+  fs.reload();
+}
+
+let comunidadHkEditingCommentId = null;
+
+function startEditComment(commentId, postId){
+  comunidadHkEditingCommentId = commentId;
+  activeFeedState().refreshDom();
+  setTimeout(() => { const el = document.getElementById('comment-edit-' + commentId); if (el) el.focus(); }, 0);
+}
+
+async function saveCommentEdit(commentId, postId){
+  const input = document.getElementById('comment-edit-' + commentId);
+  const text = input ? input.value.trim() : '';
+  if (!text) return;
+  const { error } = await supabaseClient.from('post_comments').update({ text }).eq('id', commentId);
+  if (error){ showToast('No se pudo editar: ' + error.message); return; }
+  const fs = activeFeedState();
+  const post = fs.posts.find(p => p.id === postId);
+  if (post){ const c = (post.recent_comments || []).find(x => x.id === commentId); if (c) c.text = text; }
+  comunidadHkEditingCommentId = null;
+  fs.refreshDom();
+}
+
+async function deleteComment(commentId, postId){
+  if (!confirm('¿Eliminar este comentario?')) return;
+  const { error } = await supabaseClient.from('post_comments').delete().eq('id', commentId);
+  if (error){ showToast('No se pudo eliminar: ' + error.message); return; }
+  const fs = activeFeedState();
+  const post = fs.posts.find(p => p.id === postId);
+  if (post){ post.recent_comments = (post.recent_comments || []).filter(c => c.id !== commentId); post.comment_count = Math.max(0, post.comment_count - 1); }
+  fs.refreshDom();
 }
 
 async function voteInPoll(pollId, optionId){
@@ -2721,13 +2918,6 @@ function renderViewedMemberProfile(){
       }).join('')}`;
 }
 
-function toggleJoinGroup(name){
-  if (comunidadHkJoinedGroups.has(name)) return;
-  comunidadHkJoinedGroups.add(name);
-  showToast('Te uniste a ' + name);
-  refreshComunidadHKRightRail();
-}
-
 function toggleFeedInterestChip(tag){
   if (comunidadHkSelectedInterests.has(tag)) comunidadHkSelectedInterests.delete(tag);
   else comunidadHkSelectedInterests.add(tag);
@@ -2782,15 +2972,24 @@ function socialPostCardHtml(post){
       <span onclick="document.getElementById('comment-input-${post.id}').focus()" style="cursor:pointer;color:#767b82">💬 Comentar</span>
       <span onclick="sharePost('${post.id}')" style="cursor:pointer;color:#767b82">↗ Compartir</span>
     </div>
-    ${(post.recent_comments || []).map(c => `
+    ${(post.recent_comments || []).map(c => {
+      const isMine = c.author_id === comunidadHkMemberId;
+      const editing = comunidadHkEditingCommentId === c.id;
+      return `
       <div style="display:flex;gap:10px;margin-bottom:12px">
         ${socialAvatarHtml(c.author_nombre, 32)}
-        <div>
+        <div style="flex:1;min-width:0">
           <p style="margin:0;font-size:13px;font-weight:600;color:#24262b">${esc([c.author_nombre, c.author_apellido].filter(Boolean).join(' '))}</p>
-          <p style="margin:2px 0 4px;font-size:13px;color:#3f4247">${esc(c.text)}</p>
-          <p style="margin:0;font-size:11px;color:#9a958a">${formatRelativeTime(c.created_at)}</p>
+          ${editing
+            ? `<div style="display:flex;gap:6px;margin:4px 0"><input id="comment-edit-${c.id}" type="text" value="${esc(c.text)}" onkeydown="if(event.key==='Enter'){saveCommentEdit('${c.id}','${post.id}')}" style="flex:1;border:1px solid #d8d2c6;border-radius:14px;padding:6px 12px;font-size:13px" /><button onclick="saveCommentEdit('${c.id}','${post.id}')" style="background:#E17B2F;color:#fff;border:none;padding:5px 12px;border-radius:14px;font-size:11px;font-weight:600;cursor:pointer">Guardar</button></div>`
+            : `<p style="margin:2px 0 4px;font-size:13px;color:#3f4247">${esc(c.text)}</p>`}
+          <div style="display:flex;gap:12px;align-items:center">
+            <p style="margin:0;font-size:11px;color:#9a958a">${formatRelativeTime(c.created_at)}</p>
+            ${isMine && !editing ? `<a onclick="startEditComment('${c.id}','${post.id}')" style="font-size:11px;color:#767b82;cursor:pointer">Editar</a><a onclick="deleteComment('${c.id}','${post.id}')" style="font-size:11px;color:#767b82;cursor:pointer">Eliminar</a>` : ''}
+          </div>
         </div>
-      </div>`).join('')}
+      </div>`;
+    }).join('')}
     <div style="display:flex;gap:10px;align-items:center">
       ${socialAvatarHtml(comunidadHKDisplayName(), 32)}
       <input id="comment-input-${post.id}" type="text" placeholder="Escribe un comentario..." onkeydown="if(event.key==='Enter'){addRealComment('${post.id}')}" style="flex:1;border:1px solid #d8d2c6;border-radius:16px;padding:8px 14px;font-size:13px;color:#24262b" />
@@ -2834,43 +3033,42 @@ function renderSocialFeed(){
 
 function renderSocialRightRail(){
   if (!comunidadHkMembersLoaded) loadComunidadHkMembers();
+  if (!comunidadHkActiveMembersLoaded) loadComunidadHkActiveMembers();
+  if (!comunidadHkGroupsLoaded) loadComunidadHkGroups();
+  const suggestedPeople = comunidadHkMembers.filter(p => p.id !== comunidadHkMemberId && !comunidadHkConnected.has(p.id) && !comunidadHkPendingOutgoing.has(p.id)).slice(0, 4);
+  const recommendedGroups = comunidadHkGroups.filter(g => g.my_status !== 'approved' && g.my_status !== 'pending').sort((a, b) => b.member_count - a.member_count).slice(0, 3);
   return `
   <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:20px;margin-bottom:20px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
       <p style="font-family:'Newsreader',serif;font-size:16px;color:#24262b;margin:0;font-weight:500">Personas activas</p>
       <a onclick="setComunidadHKTab('miembros')" style="font-size:12px;color:#E17B2F;font-weight:600;cursor:pointer">Ver todas</a>
     </div>
-    ${DUMMY_ACTIVE_PEOPLE.map(p => `
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+    ${!comunidadHkActiveMembersLoaded ? `<p style="font-size:12px;color:#9a958a;margin:0">Cargando…</p>` : comunidadHkActiveMembers.length === 0 ? `<p style="font-size:12px;color:#9a958a;margin:0">Todavía no hay actividad reciente.</p>` : comunidadHkActiveMembers.map(p => {
+      const name = [p.nombre, p.apellido].filter(Boolean).join(' ');
+      const role = [p.cargo, p.empresa].filter(Boolean).join(' · ');
+      return `
+      <div onclick="viewMemberProfile('${p.id}')" style="display:flex;align-items:center;gap:10px;margin-bottom:14px;cursor:pointer">
         <div style="position:relative">
-          ${socialAvatarHtml(p.name, 36)}
+          ${p.photo_url ? `<img src="${esc(p.photo_url)}" style="width:36px;height:36px;border-radius:50%;object-fit:cover" />` : socialAvatarHtml(name, 36)}
           <span style="position:absolute;bottom:0;right:0;width:9px;height:9px;border-radius:50%;background:#3fb27f;border:2px solid #fff"></span>
         </div>
-        <div style="flex:1;min-width:0"><p style="margin:0;font-size:13px;font-weight:600;color:#24262b">${esc(p.name)}</p><p style="margin:0;font-size:11px;color:#9a958a">${esc(p.role)}</p></div>
-      </div>`).join('')}
+        <div style="flex:1;min-width:0"><p style="margin:0;font-size:13px;font-weight:600;color:#24262b">${esc(name)}</p><p style="margin:0;font-size:11px;color:#9a958a">${esc(role)}</p></div>
+      </div>`;
+    }).join('')}
   </div>
   <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:20px;margin-bottom:20px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
       <p style="font-family:'Newsreader',serif;font-size:16px;color:#24262b;margin:0;font-weight:500">Personas que quizás conozcas</p>
       <a onclick="setComunidadHKTab('miembros')" style="font-size:12px;color:#E17B2F;font-weight:600;cursor:pointer">Ver todas</a>
     </div>
-    ${(comunidadHkMembers.length === 0 ? [] : comunidadHkMembers).slice(0, 4).map(p => {
+    ${suggestedPeople.length === 0 ? `<p style="font-size:12px;color:#9a958a;margin:0">No hay sugerencias por ahora.</p>` : suggestedPeople.map(p => {
       const name = [p.nombre, p.apellido].filter(Boolean).join(' ');
       const role = [p.cargo, p.empresa].filter(Boolean).join(' · ');
-      const connected = comunidadHkConnected.has(p.id);
-      const pending = comunidadHkPendingOutgoing.has(p.id);
-      const isMe = p.id === comunidadHkMemberId;
-      let actionHtml = '';
-      if (!isMe && !connected){
-        actionHtml = pending
-          ? `<button disabled style="background:#f1ede5;color:#9a958a;border:1px solid #d8d2c6;padding:5px 12px;border-radius:16px;font-size:11px;font-weight:600;cursor:default">Solicitado</button>`
-          : `<button onclick="toggleConnect('${p.id}','${esc(name)}')" style="background:#fff;color:#E17B2F;border:1px solid #f0c9a4;padding:5px 12px;border-radius:16px;font-size:11px;font-weight:600;cursor:pointer">Conectar</button>`;
-      }
       return `
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
         ${p.photo_url ? `<img src="${esc(p.photo_url)}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0" />` : socialAvatarHtml(name, 36)}
         <div style="flex:1;min-width:0"><p style="margin:0;font-size:13px;font-weight:600;color:#24262b">${esc(name)}</p><p style="margin:0;font-size:11px;color:#9a958a">${esc(role)}</p></div>
-        ${actionHtml}
+        <button onclick="toggleConnect('${p.id}','${esc(name)}')" style="background:#fff;color:#E17B2F;border:1px solid #f0c9a4;padding:5px 12px;border-radius:16px;font-size:11px;font-weight:600;cursor:pointer">Conectar</button>
       </div>`;
     }).join('')}
   </div>
@@ -2879,15 +3077,12 @@ function renderSocialRightRail(){
       <p style="font-family:'Newsreader',serif;font-size:16px;color:#24262b;margin:0;font-weight:500">Grupos recomendados</p>
       <a onclick="setComunidadHKTab('grupos')" style="font-size:12px;color:#E17B2F;font-weight:600;cursor:pointer">Ver todos</a>
     </div>
-    ${DUMMY_SUGGESTED_GROUPS.map(g => {
-      const joined = comunidadHkJoinedGroups.has(g.name);
-      return `
+    ${recommendedGroups.length === 0 ? `<p style="font-size:12px;color:#9a958a;margin:0">No hay grupos disponibles por ahora.</p>` : recommendedGroups.map(g => `
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-        <div style="width:36px;height:36px;border-radius:8px;background:#fdf1e6;display:flex;align-items:center;justify-content:center;font-size:16px">👥</div>
-        <div style="flex:1;min-width:0"><p style="margin:0;font-size:13px;font-weight:600;color:#24262b">${esc(g.name)}</p><p style="margin:0;font-size:11px;color:#9a958a">${g.members} miembros</p></div>
-        <button onclick="toggleJoinGroup('${esc(g.name)}')" ${joined ? 'disabled' : ''} style="background:${joined ? '#f1ede5' : '#fff'};color:${joined ? '#9a958a' : '#E17B2F'};border:1px solid ${joined ? '#d8d2c6' : '#f0c9a4'};padding:5px 12px;border-radius:16px;font-size:11px;font-weight:600;cursor:${joined ? 'default' : 'pointer'}">${joined ? 'Unido' : 'Unirse'}</button>
-      </div>`;
-    }).join('')}
+        ${g.photo_url ? `<img src="${esc(g.photo_url)}" style="width:36px;height:36px;border-radius:8px;object-fit:cover;flex-shrink:0" />` : `<div style="width:36px;height:36px;border-radius:8px;background:#fdf1e6;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">👥</div>`}
+        <div style="flex:1;min-width:0"><p style="margin:0;font-size:13px;font-weight:600;color:#24262b">${esc(g.name)}</p><p style="margin:0;font-size:11px;color:#9a958a">${g.member_count} miembro${g.member_count === 1 ? '' : 's'}</p></div>
+        <button onclick="requestJoinGroup('${g.id}')" style="background:#fff;color:#E17B2F;border:1px solid #f0c9a4;padding:5px 12px;border-radius:16px;font-size:11px;font-weight:600;cursor:pointer">Unirse</button>
+      </div>`).join('')}
   </div>`;
 }
 
