@@ -404,6 +404,8 @@ async function headerAdminLogout(){
   comunidadHkConnectionsLoaded = false;
   comunidadHkNotifications = [];
   comunidadHkUnreadCount = 0;
+  comunidadHkGroupsLoaded = false;
+  comunidadHkGroups = [];
   clearCommunitySession();
   renderAdminSessionControl();
   goTo(state.page);
@@ -1509,6 +1511,7 @@ function renderComunidadHKPage(){
   }
   const tab = state.comunidadHKTab || 'feed';
   if (tab === 'perfil' && !memberProfileLoaded) loadMemberProfile();
+  if (!comunidadHkGroupsLoaded) loadComunidadHkGroups();
   const linkClass = t => 'hk-social-link' + (tab === t ? ' active' : '');
   let content;
   if (tab === 'perfil') content = renderMemberProfileContent();
@@ -1517,6 +1520,7 @@ function renderComunidadHKPage(){
   else if (tab === 'feed') content = renderSocialFeed();
   else if (tab === 'miembros') content = renderComunidadHKMembers();
   else if (tab === 'conexiones') content = renderComunidadHKConnections();
+  else if (tab === 'grupos') content = renderComunidadHKGroups();
   else if (tab === 'notificaciones'){ content = renderComunidadHKNotifications(); markAllNotificationsRead(); }
   else content = comingSoonPanel(SOCIAL_TAB_LABELS[tab] || 'Esta sección');
   const showRightRail = tab === 'feed';
@@ -1542,11 +1546,13 @@ function renderComunidadHKPage(){
       <a class="${linkClass('eventos')}" onclick="setComunidadHKTab('eventos')">Eventos</a>
       <div style="padding:20px 24px 8px">
         <p style="margin:0 0 12px;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9a958a;font-weight:700">Mis grupos</p>
-        ${DUMMY_GROUPS.map(g => `
+        ${!comunidadHkGroupsLoaded ? `<p style="font-size:12px;color:#9a958a;margin:0">Cargando…</p>` : (comunidadHkGroups.filter(g => g.my_status === 'approved').length === 0
+          ? `<p style="font-size:12px;color:#9a958a;margin:0">Todavía no perteneces a ningún grupo.</p>`
+          : comunidadHkGroups.filter(g => g.my_status === 'approved').slice(0, 5).map(g => `
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;cursor:pointer" onclick="setComunidadHKTab('grupos')">
-            <div style="width:36px;height:36px;border-radius:8px;background:#fdf1e6;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${g.emoji}</div>
-            <div style="min-width:0"><p style="margin:0;font-size:13px;color:#24262b;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(g.name)}</p><p style="margin:0;font-size:11px;color:#9a958a">${g.members} miembros</p></div>
-          </div>`).join('')}
+            <div style="width:36px;height:36px;border-radius:8px;background:#fdf1e6;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">👥</div>
+            <div style="min-width:0"><p style="margin:0;font-size:13px;color:#24262b;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(g.name)}</p><p style="margin:0;font-size:11px;color:#9a958a">${g.member_count} miembro${g.member_count === 1 ? '' : 's'}</p></div>
+          </div>`).join(''))}
         <a onclick="setComunidadHKTab('grupos')" style="display:block;margin-top:8px;font-size:12px;color:#E17B2F;font-weight:600;cursor:pointer">Ver todos los grupos</a>
       </div>
     </div>
@@ -1782,11 +1788,6 @@ function socialAvatarHtml(name, size, bg){
   return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${bg || '#eaf3f8'};display:flex;align-items:center;justify-content:center;color:#1d6f9c;font-weight:600;font-size:${Math.round(size * 0.4)}px;flex-shrink:0;font-family:'Newsreader',serif">${esc((name || '?').charAt(0).toUpperCase())}</div>`;
 }
 
-const DUMMY_GROUPS = [
-  {name:'Líderes Comerciales', members:124, emoji:'💼'},
-  {name:'Recursos Humanos', members:98, emoji:'🧑‍🤝‍🧑'},
-  {name:'Emprendedores', members:76, emoji:'🚀'},
-];
 
 const DUMMY_ACTIVE_PEOPLE = [
   {name:'María José López', role:'HR Manager en Softtek'},
@@ -1914,6 +1915,181 @@ function renderComunidadHKNotifications(){
           <p style="margin:4px 0 0;font-size:12px;color:#9a958a">${formatRelativeTime(n.created_at)}</p>
         </div>`).join('')}
     </div>`}`;
+}
+
+let comunidadHkGroupsLoaded = false;
+let comunidadHkGroups = [];
+let comunidadHkShowCreateGroup = false;
+let comunidadHkExpandedGroupId = null;
+let comunidadHkGroupRequests = {};
+
+async function loadComunidadHkGroups(){
+  comunidadHkGroupsLoaded = true;
+  const { data, error } = await supabaseClient.rpc('list_groups');
+  if (!error && data){
+    comunidadHkGroups = data;
+    if (state.page === 'comunidad-hk') renderMain();
+  }
+}
+
+function toggleCreateGroupForm(){
+  comunidadHkShowCreateGroup = !comunidadHkShowCreateGroup;
+  const el = document.getElementById('comunidad-hk-main-column');
+  if (el) el.innerHTML = renderComunidadHKGroups();
+}
+
+async function createGroup(){
+  if (!comunidadHkMemberId){ showToast('No pudimos identificar tu perfil de miembro'); return; }
+  const name = (document.getElementById('new-group-name').value || '').trim();
+  const sector = (document.getElementById('new-group-sector').value || '').trim();
+  const desc = (document.getElementById('new-group-desc').value || '').trim();
+  if (!name){ showToast('Ponle un nombre al grupo'); return; }
+  const { data: group, error } = await supabaseClient.from('groups').insert({ name, sector: sector || null, description: desc || null, created_by_id: comunidadHkMemberId }).select().single();
+  if (error){ showToast('No se pudo crear el grupo: ' + error.message); return; }
+  const { error: memErr } = await supabaseClient.from('group_members').insert({ group_id: group.id, member_id: comunidadHkMemberId, role: 'admin', status: 'approved' });
+  if (memErr) showToast('Grupo creado, pero no se pudo agregarte como admin: ' + memErr.message);
+  else showToast('Grupo creado');
+  comunidadHkShowCreateGroup = false;
+  comunidadHkGroupsLoaded = false;
+  loadComunidadHkGroups();
+}
+
+async function requestJoinGroup(groupId){
+  if (!comunidadHkMemberId){ showToast('No pudimos identificar tu perfil de miembro'); return; }
+  const { error } = await supabaseClient.from('group_members').insert({ group_id: groupId, member_id: comunidadHkMemberId, status: 'pending' });
+  if (error){ showToast('No se pudo enviar la solicitud: ' + error.message); return; }
+  showToast('Solicitud enviada');
+  comunidadHkGroupsLoaded = false;
+  loadComunidadHkGroups();
+}
+
+async function acceptGroupInvite(groupId){
+  if (!comunidadHkMemberId) return;
+  const { error } = await supabaseClient.from('group_members').update({ status: 'approved' }).eq('group_id', groupId).eq('member_id', comunidadHkMemberId);
+  if (error){ showToast('No se pudo aceptar: ' + error.message); return; }
+  showToast('Te uniste al grupo');
+  comunidadHkGroupsLoaded = false;
+  loadComunidadHkGroups();
+}
+
+async function toggleGroupManage(groupId){
+  if (comunidadHkExpandedGroupId === groupId){
+    comunidadHkExpandedGroupId = null;
+  } else {
+    comunidadHkExpandedGroupId = groupId;
+    if (!comunidadHkGroupRequests[groupId]){
+      const { data } = await supabaseClient.rpc('get_group_join_requests', { gid: groupId });
+      comunidadHkGroupRequests[groupId] = data || [];
+    }
+    if (!comunidadHkConnectionsLoaded) loadComunidadHkConnections();
+  }
+  const el = document.getElementById('comunidad-hk-main-column');
+  if (el) el.innerHTML = renderComunidadHKGroups();
+}
+
+async function approveGroupRequest(groupId, memberRowId, approve){
+  if (approve){
+    const { error } = await supabaseClient.from('group_members').update({ status: 'approved' }).eq('id', memberRowId);
+    if (error){ showToast('No se pudo aprobar: ' + error.message); return; }
+    showToast('Solicitud aprobada');
+  } else {
+    const { error } = await supabaseClient.from('group_members').delete().eq('id', memberRowId);
+    if (error){ showToast('No se pudo rechazar: ' + error.message); return; }
+    showToast('Solicitud rechazada');
+  }
+  const { data } = await supabaseClient.rpc('get_group_join_requests', { gid: groupId });
+  comunidadHkGroupRequests[groupId] = data || [];
+  comunidadHkGroupsLoaded = false;
+  loadComunidadHkGroups();
+}
+
+function inviteConnectionSelectHtml(groupId){
+  if (!comunidadHkConnectionsLoaded) return `<p style="font-size:12px;color:#9a958a;margin:8px 0 0">Cargando tus conexiones…</p>`;
+  const accepted = comunidadHkConnectionsData.accepted || [];
+  if (accepted.length === 0) return `<p style="font-size:12px;color:#9a958a;margin:8px 0 0">Todavía no tienes conexiones para invitar.</p>`;
+  return `
+  <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+    <select id="invite-select-${groupId}" style="flex:1;min-width:160px;padding:8px 10px;border:1px solid #d8d2c6;border-radius:4px;font-size:13px">
+      ${accepted.map(c => `<option value="${c.member_id}">${esc([c.nombre, c.apellido].filter(Boolean).join(' '))}</option>`).join('')}
+    </select>
+    <button onclick="inviteConnectionToGroup('${groupId}')" style="background:#E17B2F;color:#fff;border:none;padding:8px 16px;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer">Invitar</button>
+  </div>`;
+}
+
+async function inviteConnectionToGroup(groupId){
+  const select = document.getElementById('invite-select-' + groupId);
+  const memberId = select ? select.value : null;
+  if (!memberId) return;
+  const { error } = await supabaseClient.from('group_members').insert({ group_id: groupId, member_id: memberId, status: 'invited' });
+  if (error){ showToast('No se pudo invitar: ' + error.message); return; }
+  showToast('Invitación enviada');
+  notifyMember(memberId, 'group_invite', comunidadHKDisplayName() + ' te invitó a un grupo');
+}
+
+function groupCardHtml(g){
+  const isAdmin = g.my_role === 'admin';
+  const expanded = comunidadHkExpandedGroupId === g.id;
+  let actionBtn;
+  if (g.my_status === 'approved') actionBtn = `<span style="font-size:12px;color:#1d6f9c;font-weight:600">✓ Miembro</span>`;
+  else if (g.my_status === 'pending') actionBtn = `<span style="font-size:12px;color:#9a958a;font-weight:600">Solicitud enviada</span>`;
+  else if (g.my_status === 'invited') actionBtn = `<button onclick="acceptGroupInvite('${g.id}')" style="background:#E17B2F;color:#fff;border:none;padding:6px 14px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer">Aceptar invitación</button>`;
+  else actionBtn = `<button onclick="requestJoinGroup('${g.id}')" style="background:#fff;color:#E17B2F;border:1px solid #f0c9a4;padding:6px 14px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer">Pedir unirse</button>`;
+
+  return `
+  <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:20px">
+    <p style="margin:0 0 4px;font-size:15px;font-weight:600;color:#24262b;font-family:'Newsreader',serif">${esc(g.name)}</p>
+    <p style="margin:0 0 10px;font-size:12px;color:#9a958a">${g.member_count} miembro${g.member_count === 1 ? '' : 's'}</p>
+    ${g.description ? `<p style="margin:0 0 14px;font-size:13px;color:#767b82;line-height:1.5">${esc(g.description)}</p>` : ''}
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      ${actionBtn}
+      ${isAdmin ? `<a onclick="toggleGroupManage('${g.id}')" style="font-size:12px;color:#767b82;cursor:pointer">${expanded ? 'Cerrar' : 'Gestionar'}</a>` : ''}
+    </div>
+    ${isAdmin && expanded ? `
+      <div style="border-top:1px solid #f1ede5;margin-top:14px;padding-top:14px">
+        <p style="font-size:12px;font-weight:600;color:#24262b;margin:0 0 8px">Solicitudes pendientes</p>
+        ${(comunidadHkGroupRequests[g.id] || []).length === 0 ? `<p style="font-size:12px;color:#9a958a;margin:0 0 10px">No hay solicitudes.</p>` : (comunidadHkGroupRequests[g.id] || []).map(r => `
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <span style="flex:1;font-size:12px;color:#3f4247">${esc([r.nombre, r.apellido].filter(Boolean).join(' '))}</span>
+            <button onclick="approveGroupRequest('${g.id}','${r.member_row_id}',true)" style="background:#E17B2F;color:#fff;border:none;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;cursor:pointer">Aprobar</button>
+            <button onclick="approveGroupRequest('${g.id}','${r.member_row_id}',false)" style="background:#fff;color:#767b82;border:1px solid #d8d2c6;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;cursor:pointer">Rechazar</button>
+          </div>`).join('')}
+        <p style="font-size:12px;font-weight:600;color:#24262b;margin:14px 0 0">Invitar conexión</p>
+        ${inviteConnectionSelectHtml(g.id)}
+      </div>` : ''}
+  </div>`;
+}
+
+function renderComunidadHKGroups(){
+  const bySector = {};
+  comunidadHkGroups.forEach(g => {
+    const key = g.sector || 'Sin sector';
+    if (!bySector[key]) bySector[key] = [];
+    bySector[key].push(g);
+  });
+  const sectors = Object.keys(bySector).sort();
+  return `
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:8px">
+    <h1 style="font-family:'Newsreader',serif;font-size:24px;color:#24262b;margin:0;font-weight:500">Grupos</h1>
+    <button onclick="toggleCreateGroupForm()" style="background:#E17B2F;color:#fff;border:none;padding:9px 18px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer">+ Crear grupo</button>
+  </div>
+  <p style="color:#767b82;font-size:14px;margin:0 0 20px">Grupos por sector de la Comunidad HK.</p>
+  ${comunidadHkShowCreateGroup ? `
+    <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:20px;margin-bottom:24px;display:flex;flex-direction:column;gap:10px">
+      <input id="new-group-name" type="text" placeholder="Nombre del grupo" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d8d2c6;border-radius:4px;font-size:14px" />
+      <input id="new-group-sector" type="text" placeholder="Sector (ej: Recursos Humanos, Finanzas...)" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d8d2c6;border-radius:4px;font-size:14px" />
+      <textarea id="new-group-desc" rows="2" placeholder="Descripción" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d8d2c6;border-radius:4px;font-size:14px;resize:vertical;font-family:'Public Sans',sans-serif"></textarea>
+      <div style="display:flex;gap:10px">
+        <button onclick="createGroup()" style="background:#E17B2F;color:#fff;border:none;padding:10px 18px;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer">Crear</button>
+        <button onclick="toggleCreateGroupForm()" style="background:transparent;color:#767b82;border:1px solid #d8d2c6;padding:10px 18px;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer">Cancelar</button>
+      </div>
+    </div>` : ''}
+  ${!comunidadHkGroupsLoaded ? `<p style="color:#9a958a;font-size:14px">Cargando grupos…</p>` : comunidadHkGroups.length === 0 ? `<p style="color:#9a958a;font-size:14px">Todavía no hay grupos. ¡Crea el primero!</p>` : sectors.map(sector => `
+    <div style="margin-bottom:28px">
+      <p style="font-size:13px;font-weight:600;color:#24262b;text-transform:uppercase;letter-spacing:0.04em;margin:0 0 12px">${esc(sector)}</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">
+        ${bySector[sector].map(g => groupCardHtml(g)).join('')}
+      </div>
+    </div>`).join('')}`;
 }
 
 function refreshComunidadHKFeed(){
