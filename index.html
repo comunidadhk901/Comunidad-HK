@@ -1562,6 +1562,7 @@ function renderComunidadHKPage(){
   else if (tab === 'grupos') content = renderComunidadHKGroups();
   else if (tab === 'mensajes') content = renderComunidadHKMessages();
   else if (tab === 'notificaciones'){ content = renderComunidadHKNotifications(); markAllNotificationsRead(); }
+  else if (tab === 'perfil-miembro') content = renderViewedMemberProfile();
   else content = comingSoonPanel(SOCIAL_TAB_LABELS[tab] || 'Esta sección');
   const showRightRail = tab === 'feed';
 
@@ -1713,6 +1714,7 @@ async function loadComunidadHkMembers(){
   const { data, error } = await supabaseClient.rpc('list_visible_members');
   if (!error && data){
     comunidadHkMembers = data;
+    if (!comunidadHkConnectionsLoaded) loadComunidadHkConnections();
     const el = document.getElementById('comunidad-hk-main-column');
     if (el && state.comunidadHKTab === 'miembros') el.innerHTML = renderComunidadHKMembers();
     refreshComunidadHKRightRail();
@@ -1727,15 +1729,23 @@ function renderComunidadHKMembers(){
   ${comunidadHkMembers.length === 0
     ? `<p style="color:#9a958a;font-size:14px">Cargando miembros…</p>`
     : `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px">
-        ${comunidadHkMembers.map(m => `
+        ${comunidadHkMembers.map(m => {
+          const name = [m.nombre, m.apellido].filter(Boolean).join(' ');
+          const isMe = m.id === comunidadHkMemberId;
+          const connected = comunidadHkConnected.has(m.id);
+          return `
           <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:20px;display:flex;gap:14px;align-items:center">
-            ${m.photo_url ? `<img src="${esc(m.photo_url)}" alt="" style="width:52px;height:52px;border-radius:50%;object-fit:cover;flex-shrink:0" />` : socialAvatarHtml(m.nombre, 52)}
-            <div style="min-width:0">
-              <p style="margin:0;font-size:14px;font-weight:600;color:#24262b">${esc(m.nombre || '')} ${esc(m.apellido || '')}</p>
+            <span onclick="viewMemberProfile('${m.id}')" style="cursor:pointer;flex-shrink:0">
+              ${m.photo_url ? `<img src="${esc(m.photo_url)}" alt="" style="width:52px;height:52px;border-radius:50%;object-fit:cover" />` : socialAvatarHtml(m.nombre, 52)}
+            </span>
+            <div style="min-width:0;flex:1">
+              <p onclick="viewMemberProfile('${m.id}')" style="margin:0;font-size:14px;font-weight:600;color:#24262b;cursor:pointer">${esc(name)}</p>
               <p style="margin:2px 0 0;font-size:12px;color:#767b82">${esc([m.cargo, m.empresa].filter(Boolean).join(' · '))}</p>
               ${m.area_profesional ? `<p style="margin:2px 0 0;font-size:11px;color:#9a958a">${esc(m.area_profesional)}</p>` : ''}
             </div>
-          </div>`).join('')}
+            ${isMe ? '' : `<button onclick="toggleConnect('${m.id}','${esc(name)}')" ${connected ? 'disabled' : ''} style="flex-shrink:0;background:${connected ? '#f1ede5' : '#fff'};color:${connected ? '#9a958a' : '#E17B2F'};border:1px solid ${connected ? '#d8d2c6' : '#f0c9a4'};padding:6px 14px;border-radius:16px;font-size:11px;font-weight:600;cursor:${connected ? 'default' : 'pointer'}">${connected ? 'Solicitado' : 'Conectar'}</button>`}
+          </div>`;
+        }).join('')}
       </div>`}`;
 }
 
@@ -2008,13 +2018,32 @@ async function createGroup(){
   const name = (document.getElementById('new-group-name').value || '').trim();
   const sector = (document.getElementById('new-group-sector').value || '').trim();
   const desc = (document.getElementById('new-group-desc').value || '').trim();
+  const photoInput = document.getElementById('new-group-photo');
+  const photoFile = photoInput && photoInput.files[0];
   if (!name){ showToast('Ponle un nombre al grupo'); return; }
   const { data: group, error } = await supabaseClient.from('groups').insert({ name, sector: sector || null, description: desc || null, created_by_id: comunidadHkMemberId }).select().single();
   if (error){ showToast('No se pudo crear el grupo: ' + error.message); return; }
   const { error: memErr } = await supabaseClient.from('group_members').insert({ group_id: group.id, member_id: comunidadHkMemberId, role: 'admin', status: 'approved' });
   if (memErr) showToast('Grupo creado, pero no se pudo agregarte como admin: ' + memErr.message);
-  else showToast('Grupo creado');
+  if (photoFile){
+    const { error: upErr } = await supabaseClient.storage.from('group-photos').upload('group-' + group.id, photoFile, { upsert: true, contentType: photoFile.type });
+    if (!upErr) await supabaseClient.from('groups').update({ photo_updated_at: new Date().toISOString() }).eq('id', group.id);
+  }
+  showToast('Grupo creado');
   comunidadHkShowCreateGroup = false;
+  comunidadHkGroupsLoaded = false;
+  loadComunidadHkGroups();
+}
+
+async function uploadGroupPhoto(groupId, fileInputId){
+  const input = document.getElementById(fileInputId);
+  const file = input && input.files[0];
+  if (!file) return;
+  const { error: upErr } = await supabaseClient.storage.from('group-photos').upload('group-' + groupId, file, { upsert: true, contentType: file.type });
+  if (upErr){ showToast('No se pudo subir la foto: ' + upErr.message); return; }
+  const { error } = await supabaseClient.from('groups').update({ photo_updated_at: new Date().toISOString() }).eq('id', groupId);
+  if (error){ showToast('No se pudo actualizar el grupo: ' + error.message); return; }
+  showToast('Foto del grupo actualizada');
   comunidadHkGroupsLoaded = false;
   loadComunidadHkGroups();
 }
@@ -2100,11 +2129,16 @@ function groupCardHtml(g){
   else if (g.my_status === 'invited') actionBtn = `<button onclick="acceptGroupInvite('${g.id}')" style="background:#E17B2F;color:#fff;border:none;padding:6px 14px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer">Aceptar invitación</button>`;
   else actionBtn = `<button onclick="requestJoinGroup('${g.id}')" style="background:#fff;color:#E17B2F;border:1px solid #f0c9a4;padding:6px 14px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer">Pedir unirse</button>`;
 
+  const creatorName = [g.creator_nombre, g.creator_apellido].filter(Boolean).join(' ');
   return `
   <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:20px">
-    <p style="margin:0 0 4px;font-size:15px;font-weight:600;color:#24262b;font-family:'Newsreader',serif">${esc(g.name)}</p>
-    <p style="margin:0 0 10px;font-size:12px;color:#9a958a">${g.member_count} miembro${g.member_count === 1 ? '' : 's'}</p>
-    ${g.description ? `<p style="margin:0 0 14px;font-size:13px;color:#767b82;line-height:1.5">${esc(g.description)}</p>` : ''}
+    <div style="display:flex;gap:12px;align-items:center;margin-bottom:10px">
+      ${g.photo_url ? `<img src="${esc(g.photo_url)}" alt="" style="width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0" />` : socialAvatarHtml(g.name, 44)}
+      <div style="min-width:0">
+        <p style="margin:0;font-size:15px;font-weight:600;color:#24262b;font-family:'Newsreader',serif">${esc(g.name)}</p>
+        <p style="margin:2px 0 0;font-size:12px;color:#9a958a">${g.member_count} miembro${g.member_count === 1 ? '' : 's'}${creatorName ? ' · Creado por ' + esc(creatorName) : ''}</p>
+      </div>
+    </div>
     <div style="display:flex;justify-content:space-between;align-items:center">
       ${actionBtn}
       ${isAdmin ? `<a onclick="toggleGroupManage('${g.id}')" style="font-size:12px;color:#767b82;cursor:pointer">${expanded ? 'Cerrar' : 'Gestionar'}</a>` : ''}
@@ -2120,6 +2154,11 @@ function groupCardHtml(g){
           </div>`).join('')}
         <p style="font-size:12px;font-weight:600;color:#24262b;margin:14px 0 0">Invitar conexión</p>
         ${inviteConnectionSelectHtml(g.id)}
+        <p style="font-size:12px;font-weight:600;color:#24262b;margin:14px 0 0">Foto del grupo</p>
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+          <input type="file" id="group-photo-${g.id}" accept="image/*" style="font-size:12px;flex:1" />
+          <button onclick="uploadGroupPhoto('${g.id}','group-photo-${g.id}')" style="background:#fff;color:#767b82;border:1px solid #d8d2c6;padding:6px 12px;border-radius:16px;font-size:11px;font-weight:600;cursor:pointer">Subir</button>
+        </div>
       </div>` : ''}
   </div>`;
 }
@@ -2143,6 +2182,8 @@ function renderComunidadHKGroups(){
       <input id="new-group-name" type="text" placeholder="Nombre del grupo" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d8d2c6;border-radius:4px;font-size:14px" />
       <input id="new-group-sector" type="text" placeholder="Sector (ej: Recursos Humanos, Finanzas...)" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d8d2c6;border-radius:4px;font-size:14px" />
       <textarea id="new-group-desc" rows="2" placeholder="Descripción" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d8d2c6;border-radius:4px;font-size:14px;resize:vertical;font-family:'Public Sans',sans-serif"></textarea>
+      <label style="font-size:12px;color:#767b82">Foto del grupo (opcional)</label>
+      <input id="new-group-photo" type="file" accept="image/*" style="font-size:13px" />
       <div style="display:flex;gap:10px">
         <button onclick="createGroup()" style="background:#E17B2F;color:#fff;border:none;padding:10px 18px;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer">Crear</button>
         <button onclick="toggleCreateGroupForm()" style="background:transparent;color:#767b82;border:1px solid #d8d2c6;padding:10px 18px;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer">Cancelar</button>
@@ -2452,6 +2493,15 @@ async function toggleRealLike(postId){
   refreshComunidadHKFeed();
 }
 
+async function sharePost(postId){
+  if (!comunidadHkMemberId){ showToast('No pudimos identificar tu perfil de miembro'); return; }
+  const { error } = await supabaseClient.from('posts').insert({ author_id: comunidadHkMemberId, shared_post_id: postId });
+  if (error){ showToast('No se pudo compartir: ' + error.message); return; }
+  showToast('Publicación compartida en tu perfil');
+  comunidadHkFeedLoaded = false;
+  loadComunidadHkFeed();
+}
+
 async function addRealComment(postId){
   if (!comunidadHkMemberId) return;
   const input = document.getElementById('comment-input-' + postId);
@@ -2544,6 +2594,72 @@ async function toggleConnect(memberId, name){
   notifyMember(memberId, 'connection_request', comunidadHKDisplayName() + ' te envió una solicitud de conexión');
 }
 
+let comunidadHkViewingMemberId = null;
+let comunidadHkViewedProfile = null;
+let comunidadHkViewedProfileLoaded = false;
+
+function viewMemberProfile(memberId){
+  comunidadHkViewingMemberId = memberId;
+  comunidadHkViewedProfile = null;
+  comunidadHkViewedProfileLoaded = false;
+  setComunidadHKTab('perfil-miembro');
+}
+
+async function loadViewedMemberProfile(){
+  comunidadHkViewedProfileLoaded = true;
+  const { data, error } = await supabaseClient.rpc('get_member_profile', { target_id: comunidadHkViewingMemberId });
+  if (!error){
+    comunidadHkViewedProfile = data;
+    const el = document.getElementById('comunidad-hk-main-column');
+    if (el && state.comunidadHKTab === 'perfil-miembro') el.innerHTML = renderViewedMemberProfile();
+  }
+}
+
+function renderViewedMemberProfile(){
+  if (!comunidadHkViewedProfileLoaded) loadViewedMemberProfile();
+  const back = `<a onclick="setComunidadHKTab('miembros')" style="font-size:13px;color:#767b82;cursor:pointer">← Volver a Miembros</a>`;
+  if (!comunidadHkViewedProfileLoaded || comunidadHkViewedProfile === null){
+    return `${back}<p style="color:#9a958a;font-size:14px;margin-top:20px">Cargando perfil…</p>`;
+  }
+  const p = comunidadHkViewedProfile;
+  if (p.perfil_visible === false && !p.nombre){
+    return `${back}<p style="color:#9a958a;font-size:14px;margin-top:20px">Este perfil es privado.</p>`;
+  }
+  const name = [p.nombre, p.apellido].filter(Boolean).join(' ');
+  return `
+  ${back}
+  <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:24px;margin-top:16px">
+    <div style="display:flex;gap:16px;align-items:center;margin-bottom:20px">
+      ${p.photo_url ? `<img src="${esc(p.photo_url)}" alt="" style="width:64px;height:64px;border-radius:50%;object-fit:cover;flex-shrink:0" />` : socialAvatarHtml(p.nombre, 64)}
+      <div style="min-width:0">
+        <p style="margin:0;font-size:19px;font-weight:600;color:#24262b;font-family:'Newsreader',serif">${esc(name)}</p>
+        <p style="margin:4px 0 0;font-size:13px;color:#767b82">${esc([p.cargo, p.empresa].filter(Boolean).join(' · '))}</p>
+        ${p.ciudad ? `<p style="margin:2px 0 0;font-size:12px;color:#9a958a">${esc(p.ciudad)}</p>` : ''}
+      </div>
+    </div>
+    <div style="display:flex;gap:28px;padding:16px 0;border-top:1px solid #f1ede5;border-bottom:1px solid #f1ede5;margin-bottom:18px">
+      <div><p style="margin:0;font-size:18px;font-weight:700;color:#24262b">${p.connections_count}</p><p style="margin:0;font-size:11px;color:#9a958a">Conexiones</p></div>
+      <div><p style="margin:0;font-size:18px;font-weight:700;color:#24262b">${p.groups_count}</p><p style="margin:0;font-size:11px;color:#9a958a">Grupos</p></div>
+      <div><p style="margin:0;font-size:18px;font-weight:700;color:#24262b">${p.posts_count}</p><p style="margin:0;font-size:11px;color:#9a958a">Publicaciones</p></div>
+    </div>
+    ${p.bio ? `<p style="font-size:14px;color:#3f4247;line-height:1.6;margin:0 0 18px">${esc(p.bio)}</p>` : ''}
+    ${p.linkedin ? `<p style="margin:0 0 18px"><a href="${esc(p.linkedin)}" target="_blank" rel="noopener" style="font-size:13px;color:#1d6f9c;font-weight:600">Ver LinkedIn ↗</a></p>` : ''}
+  </div>
+  <p style="font-family:'Newsreader',serif;font-size:17px;color:#24262b;margin:24px 0 12px;font-weight:500">Publicaciones</p>
+  ${(p.posts || []).length === 0
+    ? `<p style="color:#9a958a;font-size:14px">Todavía no ha publicado nada.</p>`
+    : (p.posts || []).map(post => {
+        const mediaUrl = post.media_storage_path ? (SUPABASE_URL + '/storage/v1/object/public/post-media/' + post.media_storage_path) : null;
+        return `
+        <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:18px;margin-bottom:14px">
+          ${post.text ? `<p style="font-size:14px;color:#3f4247;line-height:1.6;margin:0 0 10px;white-space:pre-line">${esc(post.text)}</p>` : ''}
+          ${mediaUrl && post.media_type === 'photo' ? `<img src="${mediaUrl}" style="width:100%;max-height:320px;object-fit:cover;border-radius:6px;margin-bottom:8px" />` : ''}
+          ${mediaUrl && post.media_type === 'video' ? `<video src="${mediaUrl}" controls style="width:100%;max-height:320px;border-radius:6px;margin-bottom:8px"></video>` : ''}
+          <p style="margin:0;font-size:11px;color:#9a958a">${formatRelativeTime(post.created_at)}</p>
+        </div>`;
+      }).join('')}`;
+}
+
 function toggleJoinGroup(name){
   if (comunidadHkJoinedGroups.has(name)) return;
   comunidadHkJoinedGroups.add(name);
@@ -2569,12 +2685,14 @@ function socialPostCardHtml(post){
   const name = esc([post.author_nombre, post.author_apellido].filter(Boolean).join(' '));
   const role = esc([post.author_cargo, post.author_empresa].filter(Boolean).join(' · '));
   const mediaUrl = post.media_storage_path ? (SUPABASE_URL + '/storage/v1/object/public/post-media/' + post.media_storage_path) : null;
+  const sp = post.shared_post;
+  const spMediaUrl = sp && sp.media_storage_path ? (SUPABASE_URL + '/storage/v1/object/public/post-media/' + sp.media_storage_path) : null;
   return `
   <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:20px;margin-bottom:20px">
     <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:12px">
       ${post.author_photo_url ? `<img src="${esc(post.author_photo_url)}" alt="" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0" />` : socialAvatarHtml(post.author_nombre, 44)}
       <div style="flex:1;min-width:0">
-        <p style="margin:0;font-weight:600;color:#24262b;font-size:15px">${name}</p>
+        <p onclick="viewMemberProfile('${post.author_id}')" style="margin:0;font-weight:600;color:#24262b;font-size:15px;cursor:pointer;display:inline-block">${name}</p>
         <p style="margin:2px 0 0;color:#9a958a;font-size:12px">${role}</p>
       </div>
       <span style="color:#9a958a;font-size:12px;white-space:nowrap">${formatRelativeTime(post.created_at)}</span>
@@ -2584,6 +2702,13 @@ function socialPostCardHtml(post){
     ${mediaUrl && post.media_type === 'video' ? `<video src="${mediaUrl}" controls style="width:100%;max-height:420px;border-radius:8px;margin-bottom:14px"></video>` : ''}
     ${post.poll ? pollHtml(post.poll) : ''}
     ${post.event ? eventCardHtml(post.event) : ''}
+    ${sp ? `
+    <div style="border:1px solid #ece7dd;border-radius:8px;padding:14px;margin-bottom:14px;background:#faf8f4">
+      <p style="margin:0 0 6px;font-size:13px;font-weight:600;color:#24262b">${esc([sp.author_nombre, sp.author_apellido].filter(Boolean).join(' '))}</p>
+      ${sp.text ? `<p style="margin:0 0 10px;font-size:13px;color:#3f4247;line-height:1.5;white-space:pre-line">${esc(sp.text)}</p>` : ''}
+      ${spMediaUrl && sp.media_type === 'photo' ? `<img src="${spMediaUrl}" style="width:100%;max-height:280px;object-fit:cover;border-radius:6px" />` : ''}
+      ${spMediaUrl && sp.media_type === 'video' ? `<video src="${spMediaUrl}" controls style="width:100%;max-height:280px;border-radius:6px"></video>` : ''}
+    </div>` : ''}
     <div style="display:flex;justify-content:space-between;font-size:12px;color:#9a958a;padding-bottom:10px;border-bottom:1px solid #f1ede5;margin-bottom:10px">
       <span>${post.like_count} Me gusta</span>
       <span>${post.comment_count} comentario${post.comment_count === 1 ? '' : 's'}</span>
@@ -2591,7 +2716,7 @@ function socialPostCardHtml(post){
     <div style="display:flex;gap:24px;font-size:13px;font-weight:600;padding-bottom:14px;border-bottom:1px solid #f1ede5;margin-bottom:14px">
       <span onclick="toggleRealLike('${post.id}')" style="cursor:pointer;color:${post.liked_by_me ? '#E17B2F' : '#767b82'}">${post.liked_by_me ? '👍 Te gusta' : '👍 Me gusta'}</span>
       <span onclick="document.getElementById('comment-input-${post.id}').focus()" style="cursor:pointer;color:#767b82">💬 Comentar</span>
-      <span onclick="showToast('Función de compartir próximamente')" style="cursor:pointer;color:#767b82">↗ Compartir</span>
+      <span onclick="sharePost('${post.id}')" style="cursor:pointer;color:#767b82">↗ Compartir</span>
     </div>
     ${(post.recent_comments || []).map(c => `
       <div style="display:flex;gap:10px;margin-bottom:12px">
@@ -3347,6 +3472,20 @@ async function markEnBaseDatos(id){
   openCandidateDetail(id);
 }
 
+async function toggleMemberVisibility(id){
+  const r = adminListData.inscripciones.find(x => x.id === id);
+  if (!r) return;
+  const next = !r.perfil_visible;
+  const { error } = await supabaseClient.from('inscripciones').update({ perfil_visible: next }).eq('id', id);
+  if (error){
+    const msgEl = document.getElementById('candidate-detail-msg');
+    if (msgEl){ msgEl.style.display = 'block'; msgEl.textContent = 'No se pudo actualizar: ' + error.message; }
+    return;
+  }
+  r.perfil_visible = next;
+  openCandidateDetail(id);
+}
+
 function confirmDeleteInscrito(id){
   const r = adminListData.inscripciones.find(x => x.id === id);
   if (!r) return;
@@ -3455,6 +3594,9 @@ function openCandidateDetail(id){
     ${detailField('Usuario en base de datos', r.en_base_datos
       ? '<span style="color:#1d6f9c;font-weight:600">✓ Usuario en base de datos</span>'
       : `<button onclick="markEnBaseDatos('${r.id}')" style="background:#fff;color:#1d6f9c;border:1px solid #bcdcee;padding:5px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer">OK</button>`)}
+    ${detailField('Perfil visible en Comunidad HK', `
+      <span style="color:${r.perfil_visible ? '#1d6f9c' : '#c0392b'};font-weight:600">${r.perfil_visible ? 'Visible para otros miembros' : 'Oculto por el administrador'}</span>
+      <button onclick="toggleMemberVisibility('${r.id}')" style="margin-left:10px;background:#fff;color:#767b82;border:1px solid #d8d2c6;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer">${r.perfil_visible ? 'Ocultar' : 'Mostrar'}</button>`)}
     ${r.quiere_info_coaching && r.coaching_contactado ? detailField('Coaching', 'Contactado por ' + esc(r.coaching_contactado_por || '—') + (r.coaching_contactado_at ? ' · ' + new Date(r.coaching_contactado_at).toLocaleDateString('es-CL') : '')) : ''}
     ${r.quiere_info_outplacement && r.outplacement_contactado ? detailField('Outplacement', 'Contactado por ' + esc(r.outplacement_contactado_por || '—') + (r.outplacement_contactado_at ? ' · ' + new Date(r.outplacement_contactado_at).toLocaleDateString('es-CL') : '')) : ''}
     ${(pendingCoaching(r) || pendingOutplacement(r)) ? `
