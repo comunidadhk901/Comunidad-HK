@@ -406,6 +406,9 @@ async function headerAdminLogout(){
   comunidadHkUnreadCount = 0;
   comunidadHkGroupsLoaded = false;
   comunidadHkGroups = [];
+  comunidadHkConversationsLoaded = false;
+  comunidadHkConversations = [];
+  comunidadHkActiveConversationId = null;
   clearCommunitySession();
   renderAdminSessionControl();
   goTo(state.page);
@@ -1521,6 +1524,7 @@ function renderComunidadHKPage(){
   else if (tab === 'miembros') content = renderComunidadHKMembers();
   else if (tab === 'conexiones') content = renderComunidadHKConnections();
   else if (tab === 'grupos') content = renderComunidadHKGroups();
+  else if (tab === 'mensajes') content = renderComunidadHKMessages();
   else if (tab === 'notificaciones'){ content = renderComunidadHKNotifications(); markAllNotificationsRead(); }
   else content = comingSoonPanel(SOCIAL_TAB_LABELS[tab] || 'Esta sección');
   const showRightRail = tab === 'feed';
@@ -1863,11 +1867,12 @@ function renderComunidadHKConnections(){
       ${accepted.map(m => `
         <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:20px;display:flex;gap:14px;align-items:center">
           ${m.photo_url ? `<img src="${esc(m.photo_url)}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;flex-shrink:0" />` : socialAvatarHtml(m.nombre, 52)}
-          <div style="min-width:0">
+          <div style="min-width:0;flex:1">
             <p style="margin:0;font-size:14px;font-weight:600;color:#24262b">${esc(m.nombre || '')} ${esc(m.apellido || '')}</p>
             <p style="margin:2px 0 0;font-size:12px;color:#767b82">${esc([m.cargo, m.empresa].filter(Boolean).join(' · '))}</p>
             ${m.area_profesional ? `<p style="margin:2px 0 0;font-size:11px;color:#9a958a">${esc(m.area_profesional)}</p>` : ''}
           </div>
+          <button onclick="startConversationWith('${m.member_id}','${esc(m.nombre || '')}')" style="background:#fff;color:#1d6f9c;border:1px solid #cfe3ee;padding:6px 14px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">Mensaje</button>
         </div>`).join('')}
     </div>`}`;
 }
@@ -2090,6 +2095,124 @@ function renderComunidadHKGroups(){
         ${bySector[sector].map(g => groupCardHtml(g)).join('')}
       </div>
     </div>`).join('')}`;
+}
+
+let comunidadHkConversationsLoaded = false;
+let comunidadHkConversations = [];
+let comunidadHkActiveConversationId = null;
+let comunidadHkActiveConversationOther = null;
+let comunidadHkMessages = [];
+
+async function loadComunidadHkConversations(){
+  comunidadHkConversationsLoaded = true;
+  const { data, error } = await supabaseClient.rpc('get_my_conversations');
+  if (!error && data){
+    comunidadHkConversations = data;
+    if (state.comunidadHKTab === 'mensajes'){
+      const el = document.getElementById('comunidad-hk-main-column');
+      if (el) el.innerHTML = renderComunidadHKMessages();
+    }
+  }
+}
+
+async function startConversationWith(memberId, name){
+  if (!comunidadHkMemberId){ showToast('No pudimos identificar tu perfil de miembro'); return; }
+  const { data: convId, error } = await supabaseClient.rpc('get_or_create_conversation', { other_id: memberId });
+  if (error || !convId){ showToast('No se pudo abrir la conversación' + (error ? ': ' + error.message : '')); return; }
+  comunidadHkConversationsLoaded = false;
+  setComunidadHKTab('mensajes');
+  openConversation(convId, { id: memberId, nombre: name });
+}
+
+function openConversationById(convId){
+  const conv = comunidadHkConversations.find(c => c.conversation_id === convId);
+  if (!conv) return;
+  openConversation(convId, { id: conv.other_member_id, nombre: conv.other_nombre });
+}
+
+async function openConversation(conversationId, other){
+  comunidadHkActiveConversationId = conversationId;
+  comunidadHkActiveConversationOther = other || null;
+  const el = document.getElementById('comunidad-hk-main-column');
+  if (el) el.innerHTML = renderComunidadHKMessages();
+  await loadMessagesForActiveConversation();
+}
+
+async function loadMessagesForActiveConversation(){
+  if (!comunidadHkActiveConversationId) return;
+  const { data, error } = await supabaseClient.from('messages').select('id,sender_id,text,created_at').eq('conversation_id', comunidadHkActiveConversationId).order('created_at', { ascending: true });
+  if (!error && data){
+    comunidadHkMessages = data;
+    const pane = document.getElementById('conversation-messages-pane');
+    if (pane) pane.innerHTML = messagesListHtml();
+    if (comunidadHkMemberId){
+      await supabaseClient.from('messages').update({ read_at: new Date().toISOString() })
+        .eq('conversation_id', comunidadHkActiveConversationId).neq('sender_id', comunidadHkMemberId).is('read_at', null);
+    }
+    comunidadHkConversationsLoaded = false;
+    loadComunidadHkConversations();
+  }
+}
+
+async function sendMessage(){
+  const input = document.getElementById('message-input');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text || !comunidadHkActiveConversationId || !comunidadHkMemberId) return;
+  input.value = '';
+  const { error } = await supabaseClient.from('messages').insert({ conversation_id: comunidadHkActiveConversationId, sender_id: comunidadHkMemberId, text });
+  if (error){ showToast('No se pudo enviar: ' + error.message); return; }
+  if (comunidadHkActiveConversationOther) notifyMember(comunidadHkActiveConversationOther.id, 'message', comunidadHKDisplayName() + ' te envió un mensaje');
+  await loadMessagesForActiveConversation();
+}
+
+function messagesListHtml(){
+  if (comunidadHkMessages.length === 0) return `<p style="text-align:center;color:#9a958a;font-size:13px;padding:24px 0">Todavía no hay mensajes. ¡Envía el primero!</p>`;
+  return comunidadHkMessages.map(m => {
+    const mine = m.sender_id === comunidadHkMemberId;
+    return `<div style="display:flex;justify-content:${mine ? 'flex-end' : 'flex-start'};margin-bottom:10px">
+      <div style="max-width:70%;background:${mine ? '#E17B2F' : '#faf8f4'};color:${mine ? '#fff' : '#24262b'};padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.5">
+        ${esc(m.text)}
+        <div style="font-size:10px;opacity:0.7;margin-top:4px;text-align:right">${formatRelativeTime(m.created_at)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderComunidadHKMessages(){
+  if (!comunidadHkConversationsLoaded) loadComunidadHkConversations();
+  const list = `
+  <div style="width:280px;flex-shrink:0;border-right:1px solid #ece7dd;overflow-y:auto;max-height:600px">
+    ${!comunidadHkConversationsLoaded ? `<p style="padding:16px;font-size:13px;color:#9a958a">Cargando…</p>` : comunidadHkConversations.length === 0 ? `<p style="padding:16px;font-size:13px;color:#9a958a">Todavía no tienes conversaciones. Escríbele a una conexión desde "Mis conexiones".</p>` : comunidadHkConversations.map(c => {
+      const name = [c.other_nombre, c.other_apellido].filter(Boolean).join(' ');
+      const active = comunidadHkActiveConversationId === c.conversation_id;
+      return `
+      <div onclick="openConversationById('${c.conversation_id}')" style="padding:14px 16px;cursor:pointer;display:flex;gap:10px;align-items:center;background:${active ? '#fdf1e6' : 'transparent'};border-bottom:1px solid #f1ede5">
+        ${c.other_photo_url ? `<img src="${esc(c.other_photo_url)}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0" />` : socialAvatarHtml(name, 40)}
+        <div style="min-width:0;flex:1">
+          <p style="margin:0;font-size:13px;font-weight:600;color:#24262b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)}</p>
+          <p style="margin:2px 0 0;font-size:12px;color:#9a958a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.last_text || 'Sin mensajes')}</p>
+        </div>
+        ${c.unread_count > 0 ? `<span style="background:#E17B2F;color:#fff;font-size:10px;font-weight:700;border-radius:8px;padding:2px 6px">${c.unread_count}</span>` : ''}
+      </div>`;
+    }).join('')}
+  </div>`;
+
+  const chat = comunidadHkActiveConversationId ? `
+    <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+      <div id="conversation-messages-pane" style="flex:1;padding:20px;overflow-y:auto;max-height:520px">${messagesListHtml()}</div>
+      <div style="display:flex;gap:10px;padding:16px;border-top:1px solid #ece7dd">
+        <input id="message-input" type="text" placeholder="Escribe un mensaje..." onkeydown="if(event.key==='Enter'){sendMessage()}" style="flex:1;border:1px solid #d8d2c6;border-radius:20px;padding:10px 16px;font-size:14px" />
+        <button onclick="sendMessage()" style="background:#E17B2F;color:#fff;border:none;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer">Enviar</button>
+      </div>
+    </div>` : `<div style="flex:1;display:flex;align-items:center;justify-content:center;color:#9a958a;font-size:14px;padding:40px">Selecciona una conversación</div>`;
+
+  return `
+  <h1 style="font-family:'Newsreader',serif;font-size:24px;color:#24262b;margin:0 0 16px;font-weight:500">Mensajes</h1>
+  <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;display:flex;overflow:hidden;min-height:400px;flex-wrap:wrap">
+    ${list}
+    ${chat}
+  </div>`;
 }
 
 function refreshComunidadHKFeed(){
