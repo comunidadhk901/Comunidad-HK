@@ -1755,9 +1755,14 @@ function renderComunidadHKMembers(){
           const isMe = m.id === comunidadHkMemberId;
           const connected = comunidadHkConnected.has(m.id);
           const pending = comunidadHkPendingOutgoing.has(m.id);
-          let btnLabel = 'Conectar', btnDisabled = false;
-          if (connected){ btnLabel = 'Conectado'; btnDisabled = true; }
-          else if (pending){ btnLabel = 'Solicitado'; btnDisabled = true; }
+          let actionHtml = '';
+          if (isMe || connected){
+            actionHtml = '';
+          } else if (pending){
+            actionHtml = `<button disabled style="flex-shrink:0;background:#f1ede5;color:#9a958a;border:1px solid #d8d2c6;padding:6px 14px;border-radius:16px;font-size:11px;font-weight:600;cursor:default">Solicitado</button>`;
+          } else {
+            actionHtml = `<button onclick="toggleConnect('${m.id}','${esc(name)}')" style="flex-shrink:0;background:#fff;color:#E17B2F;border:1px solid #f0c9a4;padding:6px 14px;border-radius:16px;font-size:11px;font-weight:600;cursor:pointer">Conectar</button>`;
+          }
           return `
           <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:20px;display:flex;gap:14px;align-items:center">
             <span onclick="viewMemberProfile('${m.id}')" style="cursor:pointer;flex-shrink:0">
@@ -1768,7 +1773,7 @@ function renderComunidadHKMembers(){
               <p style="margin:2px 0 0;font-size:12px;color:#767b82">${esc([m.cargo, m.empresa].filter(Boolean).join(' · '))}</p>
               ${m.area_profesional ? `<p style="margin:2px 0 0;font-size:11px;color:#9a958a">${esc(m.area_profesional)}</p>` : ''}
             </div>
-            ${isMe ? '' : `<button onclick="toggleConnect('${m.id}','${esc(name)}')" ${btnDisabled ? 'disabled' : ''} style="flex-shrink:0;background:${btnDisabled ? '#f1ede5' : '#fff'};color:${btnDisabled ? '#9a958a' : '#E17B2F'};border:1px solid ${btnDisabled ? '#d8d2c6' : '#f0c9a4'};padding:6px 14px;border-radius:16px;font-size:11px;font-weight:600;cursor:${btnDisabled ? 'default' : 'pointer'}">${btnLabel}</button>`}
+            ${actionHtml}
           </div>`;
         }).join('')}
       </div>`}`;
@@ -2536,6 +2541,15 @@ async function toggleRealLike(postId){
   refreshComunidadHKFeed();
 }
 
+async function deletePost(postId){
+  if (!confirm('¿Eliminar esta publicación? Esta acción no se puede deshacer.')) return;
+  const { error } = await supabaseClient.from('posts').delete().eq('id', postId);
+  if (error){ showToast('No se pudo eliminar: ' + error.message); return; }
+  comunidadHkFeedPosts = comunidadHkFeedPosts.filter(p => p.id !== postId);
+  showToast('Publicación eliminada');
+  refreshComunidadHKFeed();
+}
+
 async function sharePost(postId){
   if (!comunidadHkMemberId){ showToast('No pudimos identificar tu perfil de miembro'); return; }
   const { error } = await supabaseClient.from('posts').insert({ author_id: comunidadHkMemberId, shared_post_id: postId });
@@ -2688,6 +2702,7 @@ function renderViewedMemberProfile(){
       <div><p style="margin:0;font-size:18px;font-weight:700;color:#24262b">${p.groups_count}</p><p style="margin:0;font-size:11px;color:#9a958a">Grupos</p></div>
       <div><p style="margin:0;font-size:18px;font-weight:700;color:#24262b">${p.posts_count}</p><p style="margin:0;font-size:11px;color:#9a958a">Publicaciones</p></div>
     </div>
+    ${p.id !== comunidadHkMemberId ? `<button onclick="startConversationWith('${p.id}','${esc(name)}')" style="background:#E17B2F;color:#fff;border:none;padding:9px 20px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:18px">Enviar mensaje</button>` : ''}
     ${p.bio ? `<p style="font-size:14px;color:#3f4247;line-height:1.6;margin:0 0 18px">${esc(p.bio)}</p>` : ''}
     ${p.linkedin ? `<p style="margin:0 0 18px"><a href="${esc(p.linkedin)}" target="_blank" rel="noopener" style="font-size:13px;color:#1d6f9c;font-weight:600">Ver LinkedIn ↗</a></p>` : ''}
   </div>
@@ -2741,7 +2756,10 @@ function socialPostCardHtml(post){
         <p onclick="viewMemberProfile('${post.author_id}')" style="margin:0;font-weight:600;color:#24262b;font-size:15px;cursor:pointer;display:inline-block">${name}</p>
         <p style="margin:2px 0 0;color:#9a958a;font-size:12px">${role}</p>
       </div>
-      <span style="color:#9a958a;font-size:12px;white-space:nowrap">${formatRelativeTime(post.created_at)}</span>
+      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+        <span style="color:#9a958a;font-size:12px;white-space:nowrap">${formatRelativeTime(post.created_at)}</span>
+        ${post.author_id === comunidadHkMemberId ? `<span onclick="deletePost('${post.id}')" title="Eliminar publicación" style="cursor:pointer;color:#9a958a;font-size:13px">🗑</span>` : ''}
+      </div>
     </div>
     ${post.text ? `<p style="font-size:14px;color:#3f4247;line-height:1.6;margin:0 0 14px;white-space:pre-line">${esc(post.text)}</p>` : ''}
     ${mediaUrl && post.media_type === 'photo' ? `<img src="${mediaUrl}" style="width:100%;max-height:420px;object-fit:cover;border-radius:8px;margin-bottom:14px" />` : ''}
@@ -2841,14 +2859,18 @@ function renderSocialRightRail(){
       const role = [p.cargo, p.empresa].filter(Boolean).join(' · ');
       const connected = comunidadHkConnected.has(p.id);
       const pending = comunidadHkPendingOutgoing.has(p.id);
-      let btnLabel = 'Conectar', btnDisabled = false;
-      if (connected){ btnLabel = 'Conectado'; btnDisabled = true; }
-      else if (pending){ btnLabel = 'Solicitado'; btnDisabled = true; }
+      const isMe = p.id === comunidadHkMemberId;
+      let actionHtml = '';
+      if (!isMe && !connected){
+        actionHtml = pending
+          ? `<button disabled style="background:#f1ede5;color:#9a958a;border:1px solid #d8d2c6;padding:5px 12px;border-radius:16px;font-size:11px;font-weight:600;cursor:default">Solicitado</button>`
+          : `<button onclick="toggleConnect('${p.id}','${esc(name)}')" style="background:#fff;color:#E17B2F;border:1px solid #f0c9a4;padding:5px 12px;border-radius:16px;font-size:11px;font-weight:600;cursor:pointer">Conectar</button>`;
+      }
       return `
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
         ${p.photo_url ? `<img src="${esc(p.photo_url)}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0" />` : socialAvatarHtml(name, 36)}
         <div style="flex:1;min-width:0"><p style="margin:0;font-size:13px;font-weight:600;color:#24262b">${esc(name)}</p><p style="margin:0;font-size:11px;color:#9a958a">${esc(role)}</p></div>
-        <button onclick="toggleConnect('${p.id}','${esc(name)}')" ${btnDisabled ? 'disabled' : ''} style="background:${btnDisabled ? '#f1ede5' : '#fff'};color:${btnDisabled ? '#9a958a' : '#E17B2F'};border:1px solid ${btnDisabled ? '#d8d2c6' : '#f0c9a4'};padding:5px 12px;border-radius:16px;font-size:11px;font-weight:600;cursor:${btnDisabled ? 'default' : 'pointer'}">${btnLabel}</button>
+        ${actionHtml}
       </div>`;
     }).join('')}
   </div>
