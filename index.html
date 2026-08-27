@@ -401,6 +401,9 @@ async function headerAdminLogout(){
   comunidadHkSessionChecked = false;
   comunidadHkMemberId = null;
   comunidadHkFeedLoaded = false;
+  comunidadHkConnectionsLoaded = false;
+  comunidadHkNotifications = [];
+  comunidadHkUnreadCount = 0;
   clearCommunitySession();
   renderAdminSessionControl();
   goTo(state.page);
@@ -1513,6 +1516,8 @@ function renderComunidadHKPage(){
   else if (tab === 'coaching') content = renderCoaching();
   else if (tab === 'feed') content = renderSocialFeed();
   else if (tab === 'miembros') content = renderComunidadHKMembers();
+  else if (tab === 'conexiones') content = renderComunidadHKConnections();
+  else if (tab === 'notificaciones'){ content = renderComunidadHKNotifications(); markAllNotificationsRead(); }
   else content = comingSoonPanel(SOCIAL_TAB_LABELS[tab] || 'Esta sección');
   const showRightRail = tab === 'feed';
 
@@ -1568,6 +1573,7 @@ async function checkComunidadHkSession(){
   if (data){
     comunidadHkVerifiedEmail = session.user.email;
     await loadComunidadHkMemberId();
+    loadComunidadHkNotifications();
     if (state.page === 'comunidad-hk') renderMain();
   }
 }
@@ -1625,6 +1631,7 @@ async function verifyComunidadHkOtp(){
   comunidadHkVerifiedEmail = comunidadHkOtpEmailInput;
   comunidadHkOtpStep = 'email';
   await loadComunidadHkMemberId();
+  loadComunidadHkNotifications();
   renderMain();
 }
 
@@ -1638,6 +1645,7 @@ async function loadComunidadHkMembers(){
     comunidadHkMembers = data;
     const el = document.getElementById('comunidad-hk-main-column');
     if (el && state.comunidadHKTab === 'miembros') el.innerHTML = renderComunidadHKMembers();
+    refreshComunidadHKRightRail();
   }
 }
 
@@ -1666,12 +1674,6 @@ function comunidadHKDisplayName(){
   return isAdminSession ? 'Administrador' : 'Mi cuenta';
 }
 
-const DUMMY_NOTIFICATIONS = [
-  {text:'María José López le dio like a tu publicación', time:'hace 1h'},
-  {text:'Andrés Valenzuela quiere conectar contigo', time:'hace 3h'},
-  {text:'Nuevo comentario de Luis Fernández', time:'Ayer'},
-];
-
 function renderComunidadHKTopbar(){
   const displayName = comunidadHKDisplayName();
   return `
@@ -1692,10 +1694,12 @@ function renderComunidadHKTopbar(){
       <span onclick="setComunidadHKTab('miembros')" style="cursor:pointer;font-size:17px" title="Buscar miembros">🔍</span>
       <span style="position:relative">
         <span onclick="toggleComunidadHKNotifications(event)" style="cursor:pointer;font-size:17px" title="Notificaciones">🔔</span>
-        <span style="position:absolute;top:-6px;right:-9px;background:#E17B2F;color:#fff;font-size:10px;font-weight:700;border-radius:8px;padding:1px 5px;pointer-events:none">${DUMMY_NOTIFICATIONS.length}</span>
-        <div id="comunidad-hk-notif-dropdown" onclick="event.stopPropagation()" style="display:none;position:absolute;top:32px;right:-12px;width:280px;background:#fff;border:1px solid #ece7dd;border-radius:8px;box-shadow:0 12px 28px rgba(0,0,0,0.14);z-index:50;overflow:hidden">
-          <p style="margin:0;padding:14px 16px;font-size:13px;font-weight:700;color:#24262b;border-bottom:1px solid #f1ede5">Notificaciones</p>
-          ${DUMMY_NOTIFICATIONS.map(n => `<div style="padding:12px 16px;border-bottom:1px solid #f1ede5"><p style="margin:0;font-size:13px;color:#3f4247">${esc(n.text)}</p><p style="margin:4px 0 0;font-size:11px;color:#9a958a">${esc(n.time)}</p></div>`).join('')}
+        <span id="comunidad-hk-notif-badge" style="display:${comunidadHkUnreadCount > 0 ? 'inline-block' : 'none'};position:absolute;top:-6px;right:-9px;background:#E17B2F;color:#fff;font-size:10px;font-weight:700;border-radius:8px;padding:1px 5px;pointer-events:none">${comunidadHkUnreadCount}</span>
+        <div id="comunidad-hk-notif-dropdown" onclick="event.stopPropagation()" style="display:none;position:absolute;top:32px;right:-12px;width:300px;max-height:360px;overflow-y:auto;background:#fff;border:1px solid #ece7dd;border-radius:8px;box-shadow:0 12px 28px rgba(0,0,0,0.14);z-index:50">
+          <p style="margin:0;padding:14px 16px;font-size:13px;font-weight:700;color:#24262b;border-bottom:1px solid #f1ede5;position:sticky;top:0;background:#fff">Notificaciones</p>
+          ${comunidadHkNotifications.length === 0
+            ? `<p style="padding:16px;font-size:13px;color:#9a958a;margin:0">Todavía no tienes notificaciones.</p>`
+            : comunidadHkNotifications.slice(0, 8).map(n => `<div style="padding:12px 16px;border-bottom:1px solid #f1ede5"><p style="margin:0;font-size:13px;color:#3f4247">${esc(n.payload || '')}</p><p style="margin:4px 0 0;font-size:11px;color:#9a958a">${formatRelativeTime(n.created_at)}</p></div>`).join('')}
         </div>
       </span>
       <span onclick="setComunidadHKTab('mensajes')" style="cursor:pointer;font-size:17px" title="Mensajes">💬</span>
@@ -1726,7 +1730,10 @@ function toggleComunidadHKNotifications(event){
   const a = document.getElementById('comunidad-hk-account-dropdown');
   if (a) a.style.display = 'none';
   const n = document.getElementById('comunidad-hk-notif-dropdown');
-  if (n) n.style.display = n.style.display === 'block' ? 'none' : 'block';
+  if (!n) return;
+  const opening = n.style.display !== 'block';
+  n.style.display = opening ? 'block' : 'none';
+  if (opening) markAllNotificationsRead();
 }
 
 function toggleComunidadHKAccountMenu(event){
@@ -1802,6 +1809,112 @@ const DUMMY_SUGGESTED_GROUPS = [
 let comunidadHkConnected = new Set();
 let comunidadHkJoinedGroups = new Set();
 let comunidadHkSelectedInterests = new Set();
+
+let comunidadHkConnectionsLoaded = false;
+let comunidadHkConnectionsData = { accepted: [], incoming: [] };
+
+async function loadComunidadHkConnections(){
+  comunidadHkConnectionsLoaded = true;
+  const { data, error } = await supabaseClient.rpc('get_my_connections');
+  if (!error && data){
+    comunidadHkConnectionsData = data;
+    (data.accepted || []).forEach(c => comunidadHkConnected.add(c.member_id));
+    const el = document.getElementById('comunidad-hk-main-column');
+    if (el && state.comunidadHKTab === 'conexiones') el.innerHTML = renderComunidadHKConnections();
+  }
+}
+
+async function respondConnection(connectionId, accept){
+  const { error } = await supabaseClient.from('connections').update({ status: accept ? 'accepted' : 'declined', responded_at: new Date().toISOString() }).eq('id', connectionId);
+  if (error){ showToast('No se pudo responder: ' + error.message); return; }
+  if (accept){
+    const conn = (comunidadHkConnectionsData.incoming || []).find(c => c.connection_id === connectionId);
+    if (conn) notifyMember(conn.member_id, 'connection_accepted', comunidadHKDisplayName() + ' aceptó tu solicitud de conexión');
+  }
+  showToast(accept ? 'Conexión aceptada' : 'Solicitud rechazada');
+  comunidadHkConnectionsLoaded = false;
+  loadComunidadHkConnections();
+}
+
+function renderComunidadHKConnections(){
+  if (!comunidadHkConnectionsLoaded) loadComunidadHkConnections();
+  const accepted = comunidadHkConnectionsData.accepted || [];
+  const incoming = comunidadHkConnectionsData.incoming || [];
+  return `
+  <h1 style="font-family:'Newsreader',serif;font-size:24px;color:#24262b;margin:0 0 6px;font-weight:500">Mis conexiones</h1>
+  <p style="color:#767b82;font-size:14px;margin:0 0 24px">${accepted.length} conexión${accepted.length === 1 ? '' : 'es'}</p>
+  ${incoming.length ? `
+    <div style="margin-bottom:28px">
+      <p style="font-size:13px;font-weight:600;color:#24262b;text-transform:uppercase;letter-spacing:0.04em;margin:0 0 12px">Solicitudes pendientes (${incoming.length})</p>
+      ${incoming.map(m => `
+        <div style="background:#fff;border:1px solid #f0c9a4;border-radius:8px;padding:16px 20px;display:flex;align-items:center;gap:14px;margin-bottom:12px;flex-wrap:wrap">
+          ${m.photo_url ? `<img src="${esc(m.photo_url)}" style="width:48px;height:48px;border-radius:50%;object-fit:cover" />` : socialAvatarHtml(m.nombre, 48)}
+          <div style="flex:1;min-width:160px">
+            <p style="margin:0;font-size:14px;font-weight:600;color:#24262b">${esc(m.nombre || '')} ${esc(m.apellido || '')}</p>
+            <p style="margin:2px 0 0;font-size:12px;color:#767b82">${esc([m.cargo, m.empresa].filter(Boolean).join(' · '))}</p>
+          </div>
+          <button onclick="respondConnection('${m.connection_id}',true)" style="background:#E17B2F;color:#fff;border:none;padding:7px 16px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer">Aceptar</button>
+          <button onclick="respondConnection('${m.connection_id}',false)" style="background:#fff;color:#767b82;border:1px solid #d8d2c6;padding:7px 16px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer">Ignorar</button>
+        </div>`).join('')}
+    </div>` : ''}
+  ${accepted.length === 0 ? `<p style="color:#9a958a;font-size:14px">Todavía no tienes conexiones.</p>` : `
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">
+      ${accepted.map(m => `
+        <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:20px;display:flex;gap:14px;align-items:center">
+          ${m.photo_url ? `<img src="${esc(m.photo_url)}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;flex-shrink:0" />` : socialAvatarHtml(m.nombre, 52)}
+          <div style="min-width:0">
+            <p style="margin:0;font-size:14px;font-weight:600;color:#24262b">${esc(m.nombre || '')} ${esc(m.apellido || '')}</p>
+            <p style="margin:2px 0 0;font-size:12px;color:#767b82">${esc([m.cargo, m.empresa].filter(Boolean).join(' · '))}</p>
+            ${m.area_profesional ? `<p style="margin:2px 0 0;font-size:11px;color:#9a958a">${esc(m.area_profesional)}</p>` : ''}
+          </div>
+        </div>`).join('')}
+    </div>`}`;
+}
+
+let comunidadHkNotifications = [];
+let comunidadHkUnreadCount = 0;
+
+async function loadComunidadHkNotifications(){
+  const { data, error } = await supabaseClient
+    .from('notifications')
+    .select('id, type, payload, read, created_at')
+    .order('created_at', { ascending: false })
+    .limit(30);
+  if (!error && data){
+    comunidadHkNotifications = data;
+    comunidadHkUnreadCount = data.filter(n => !n.read).length;
+    const badge = document.getElementById('comunidad-hk-notif-badge');
+    if (badge){ badge.textContent = comunidadHkUnreadCount; badge.style.display = comunidadHkUnreadCount > 0 ? 'inline-block' : 'none'; }
+    if (state.comunidadHKTab === 'notificaciones'){
+      const el = document.getElementById('comunidad-hk-main-column');
+      if (el) el.innerHTML = renderComunidadHKNotifications();
+    }
+  }
+}
+
+async function markAllNotificationsRead(){
+  if (comunidadHkUnreadCount === 0) return;
+  comunidadHkNotifications.forEach(n => n.read = true);
+  comunidadHkUnreadCount = 0;
+  const badge = document.getElementById('comunidad-hk-notif-badge');
+  if (badge) badge.style.display = 'none';
+  if (!comunidadHkMemberId) return;
+  await supabaseClient.from('notifications').update({ read: true }).eq('recipient_id', comunidadHkMemberId).eq('read', false);
+}
+
+function renderComunidadHKNotifications(){
+  return `
+  <h1 style="font-family:'Newsreader',serif;font-size:24px;color:#24262b;margin:0 0 6px;font-weight:500">Notificaciones</h1>
+  <p style="color:#767b82;font-size:14px;margin:0 0 24px">Actividad reciente de la comunidad.</p>
+  ${comunidadHkNotifications.length === 0 ? `<p style="color:#9a958a;font-size:14px">Todavía no tienes notificaciones.</p>` : `
+    <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;overflow:hidden">
+      ${comunidadHkNotifications.map(n => `
+        <div style="padding:16px 20px;border-bottom:1px solid #f1ede5">
+          <p style="margin:0;font-size:14px;color:#24262b">${esc(n.payload || '')}</p>
+          <p style="margin:4px 0 0;font-size:12px;color:#9a958a">${formatRelativeTime(n.created_at)}</p>
+        </div>`).join('')}
+    </div>`}`;
+}
 
 function refreshComunidadHKFeed(){
   const el = document.getElementById('comunidad-hk-main-column');
@@ -1975,7 +2088,7 @@ async function toggleRealLike(postId){
   } else {
     await supabaseClient.from('post_likes').insert({ post_id: postId, member_id: comunidadHkMemberId });
     post.liked_by_me = true; post.like_count += 1;
-    notifyMember(post.author_id, 'like', 'Le dio like a tu publicación');
+    notifyMember(post.author_id, 'like', comunidadHKDisplayName() + ' le dio like a tu publicación');
   }
   refreshComunidadHKFeed();
 }
@@ -1988,7 +2101,7 @@ async function addRealComment(postId){
   const { error } = await supabaseClient.from('post_comments').insert({ post_id: postId, author_id: comunidadHkMemberId, text });
   if (error){ showToast('No se pudo comentar: ' + error.message); return; }
   const post = comunidadHkFeedPosts.find(p => p.id === postId);
-  notifyMember(post ? post.author_id : null, 'comment', 'Comentó tu publicación');
+  notifyMember(post ? post.author_id : null, 'comment', comunidadHKDisplayName() + ' comentó tu publicación');
   loadComunidadHkFeed();
 }
 
@@ -2056,11 +2169,20 @@ function eventCardHtml(ev){
   </div>`;
 }
 
-function toggleConnect(name){
-  if (comunidadHkConnected.has(name)) return;
-  comunidadHkConnected.add(name);
-  showToast('Solicitud enviada a ' + name);
+async function toggleConnect(memberId, name){
+  if (!comunidadHkMemberId){ showToast('No pudimos identificar tu perfil de miembro'); return; }
+  if (comunidadHkConnected.has(memberId)) return;
+  comunidadHkConnected.add(memberId);
   refreshComunidadHKRightRail();
+  const { error } = await supabaseClient.from('connections').insert({ requester_id: comunidadHkMemberId, recipient_id: memberId });
+  if (error){
+    comunidadHkConnected.delete(memberId);
+    showToast('No se pudo enviar la solicitud: ' + error.message);
+    refreshComunidadHKRightRail();
+    return;
+  }
+  showToast('Solicitud enviada a ' + name);
+  notifyMember(memberId, 'connection_request', comunidadHKDisplayName() + ' te envió una solicitud de conexión');
 }
 
 function toggleJoinGroup(name){
@@ -2163,6 +2285,7 @@ function renderSocialFeed(){
 }
 
 function renderSocialRightRail(){
+  if (!comunidadHkMembersLoaded) loadComunidadHkMembers();
   return `
   <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:20px;margin-bottom:20px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
@@ -2183,13 +2306,15 @@ function renderSocialRightRail(){
       <p style="font-family:'Newsreader',serif;font-size:16px;color:#24262b;margin:0;font-weight:500">Personas que quizás conozcas</p>
       <a onclick="setComunidadHKTab('miembros')" style="font-size:12px;color:#E17B2F;font-weight:600;cursor:pointer">Ver todas</a>
     </div>
-    ${DUMMY_SUGGESTED_PEOPLE.map(p => {
-      const connected = comunidadHkConnected.has(p.name);
+    ${(comunidadHkMembers.length === 0 ? [] : comunidadHkMembers).slice(0, 4).map(p => {
+      const name = [p.nombre, p.apellido].filter(Boolean).join(' ');
+      const role = [p.cargo, p.empresa].filter(Boolean).join(' · ');
+      const connected = comunidadHkConnected.has(p.id);
       return `
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-        ${socialAvatarHtml(p.name, 36)}
-        <div style="flex:1;min-width:0"><p style="margin:0;font-size:13px;font-weight:600;color:#24262b">${esc(p.name)}</p><p style="margin:0;font-size:11px;color:#9a958a">${esc(p.role)}</p></div>
-        <button onclick="toggleConnect('${esc(p.name)}')" ${connected ? 'disabled' : ''} style="background:${connected ? '#f1ede5' : '#fff'};color:${connected ? '#9a958a' : '#E17B2F'};border:1px solid ${connected ? '#d8d2c6' : '#f0c9a4'};padding:5px 12px;border-radius:16px;font-size:11px;font-weight:600;cursor:${connected ? 'default' : 'pointer'}">${connected ? 'Solicitado' : 'Conectar'}</button>
+        ${p.photo_url ? `<img src="${esc(p.photo_url)}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0" />` : socialAvatarHtml(name, 36)}
+        <div style="flex:1;min-width:0"><p style="margin:0;font-size:13px;font-weight:600;color:#24262b">${esc(name)}</p><p style="margin:0;font-size:11px;color:#9a958a">${esc(role)}</p></div>
+        <button onclick="toggleConnect('${p.id}','${esc(name)}')" ${connected ? 'disabled' : ''} style="background:${connected ? '#f1ede5' : '#fff'};color:${connected ? '#9a958a' : '#E17B2F'};border:1px solid ${connected ? '#d8d2c6' : '#f0c9a4'};padding:5px 12px;border-radius:16px;font-size:11px;font-weight:600;cursor:${connected ? 'default' : 'pointer'}">${connected ? 'Solicitado' : 'Conectar'}</button>
       </div>`;
     }).join('')}
   </div>
