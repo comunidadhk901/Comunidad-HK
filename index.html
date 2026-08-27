@@ -402,6 +402,8 @@ async function headerAdminLogout(){
   comunidadHkMemberId = null;
   comunidadHkFeedLoaded = false;
   comunidadHkConnectionsLoaded = false;
+  comunidadHkConnected = new Set();
+  comunidadHkPendingOutgoing = new Set();
   comunidadHkNotifications = [];
   comunidadHkUnreadCount = 0;
   comunidadHkGroupsLoaded = false;
@@ -461,7 +463,7 @@ function handleHeroFileDrop(e){
   uploadHeroFile(e.dataTransfer.files && e.dataTransfer.files[0]);
 }
 
-const AREAS_INTERES = ['Outplacement','Coaching','Búsqueda laboral','Transición laboral'];
+const AREAS_INTERES = ['Outplacement','Coaching','Búsqueda laboral','Transición laboral','Desarrollo profesional y networking'];
 
 const PROGRAMS = [
   {
@@ -557,7 +559,7 @@ const state = {
   form: {
     nombre:'', apellido:'', email:'', telefono:'', cargo:'', empresa:'', carrera:'',
     linkedin:'', ciudad:'', areaProfesional:'', anios:'', motivacion:'', sinTrabajo:false,
-    infoCoaching:false, infoOutplacement:false, infoOtro:'',
+    infoCoaching:false, infoOutplacement:false, infoOtro:'', quiereNetworking:null,
     cvFileName:null, cvFile:null, areasInteres:[],
   },
   formError: '',
@@ -935,6 +937,11 @@ function renderForm2(){
       </div>
     </div>
 
+    <div style="display:flex;flex-direction:column;gap:14px;padding:24px;background:#fff;border:1px solid #ece7dd;border-radius:6px;margin-bottom:24px">
+      <p style="font-size:14px;font-weight:600;color:#24262b;margin:0">¿Quieres formar parte de la red de networking donde puedas conectar con otros profesionales?</p>
+      <div id="networking-choice" style="display:flex;gap:12px">${networkingChoiceHtml()}</div>
+    </div>
+
     <p id="form-error" style="color:#c0392b;font-size:14px;margin:16px 0 0;display:${state.formError?'block':'none'}">${esc(state.formError)}</p>
 
     <div style="display:flex;gap:16px;margin-top:32px">
@@ -951,6 +958,20 @@ function areaChipsHtml(){
       ? `<button class="hk-chip" onclick="toggleAreaInteres('${esc(c)}')" style="background:#E17B2F;color:#fff;border:1px solid #E17B2F;padding:10px 18px;border-radius:20px;font-size:14px;font-weight:600">${esc(c)}</button>`
       : `<button class="hk-chip" onclick="toggleAreaInteres('${esc(c)}')" style="background:#fff;color:#3f4247;border:1px solid #d8d2c6;padding:10px 18px;border-radius:20px;font-size:14px;font-weight:500">${esc(c)}</button>`;
   }).join('');
+}
+
+function networkingChoiceHtml(){
+  const val = state.form.quiereNetworking;
+  const btn = (label, target) => {
+    const on = val === target;
+    return `<button type="button" onclick="setQuiereNetworking(${target})" style="flex:1;background:${on ? '#E17B2F' : '#fff'};color:${on ? '#fff' : '#3f4247'};border:1px solid ${on ? '#E17B2F' : '#d8d2c6'};padding:10px 18px;border-radius:4px;font-size:14px;font-weight:600;cursor:pointer">${label}</button>`;
+  };
+  return btn('Sí', true) + btn('No', false);
+}
+
+function setQuiereNetworking(val){
+  state.form.quiereNetworking = val;
+  document.getElementById('networking-choice').innerHTML = networkingChoiceHtml();
 }
 
 function toggleAreaInteres(cat){
@@ -1003,7 +1024,7 @@ async function submitForm(){
     cv_file_name: f.cvFileName, cv_storage_path: cvStoragePath, areas_interes: f.areasInteres,
     motivacion: f.motivacion || null,
     quiere_info_coaching: f.infoCoaching, quiere_info_outplacement: f.infoOutplacement,
-    quiere_info_otro: f.infoOtro || null,
+    quiere_info_otro: f.infoOtro || null, quiere_networking: f.quiereNetworking,
     acepta_privacidad: true, acepta_comunicaciones: false,
   });
 
@@ -1733,6 +1754,10 @@ function renderComunidadHKMembers(){
           const name = [m.nombre, m.apellido].filter(Boolean).join(' ');
           const isMe = m.id === comunidadHkMemberId;
           const connected = comunidadHkConnected.has(m.id);
+          const pending = comunidadHkPendingOutgoing.has(m.id);
+          let btnLabel = 'Conectar', btnDisabled = false;
+          if (connected){ btnLabel = 'Conectado'; btnDisabled = true; }
+          else if (pending){ btnLabel = 'Solicitado'; btnDisabled = true; }
           return `
           <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:20px;display:flex;gap:14px;align-items:center">
             <span onclick="viewMemberProfile('${m.id}')" style="cursor:pointer;flex-shrink:0">
@@ -1743,7 +1768,7 @@ function renderComunidadHKMembers(){
               <p style="margin:2px 0 0;font-size:12px;color:#767b82">${esc([m.cargo, m.empresa].filter(Boolean).join(' · '))}</p>
               ${m.area_profesional ? `<p style="margin:2px 0 0;font-size:11px;color:#9a958a">${esc(m.area_profesional)}</p>` : ''}
             </div>
-            ${isMe ? '' : `<button onclick="toggleConnect('${m.id}','${esc(name)}')" ${connected ? 'disabled' : ''} style="flex-shrink:0;background:${connected ? '#f1ede5' : '#fff'};color:${connected ? '#9a958a' : '#E17B2F'};border:1px solid ${connected ? '#d8d2c6' : '#f0c9a4'};padding:6px 14px;border-radius:16px;font-size:11px;font-weight:600;cursor:${connected ? 'default' : 'pointer'}">${connected ? 'Solicitado' : 'Conectar'}</button>`}
+            ${isMe ? '' : `<button onclick="toggleConnect('${m.id}','${esc(name)}')" ${btnDisabled ? 'disabled' : ''} style="flex-shrink:0;background:${btnDisabled ? '#f1ede5' : '#fff'};color:${btnDisabled ? '#9a958a' : '#E17B2F'};border:1px solid ${btnDisabled ? '#d8d2c6' : '#f0c9a4'};padding:6px 14px;border-radius:16px;font-size:11px;font-weight:600;cursor:${btnDisabled ? 'default' : 'pointer'}">${btnLabel}</button>`}
           </div>`;
         }).join('')}
       </div>`}`;
@@ -1882,6 +1907,7 @@ const DUMMY_SUGGESTED_GROUPS = [
 ];
 
 let comunidadHkConnected = new Set();
+let comunidadHkPendingOutgoing = new Set();
 let comunidadHkJoinedGroups = new Set();
 let comunidadHkSelectedInterests = new Set();
 
@@ -1894,6 +1920,7 @@ async function loadComunidadHkConnections(){
   if (!error && data){
     comunidadHkConnectionsData = data;
     (data.accepted || []).forEach(c => comunidadHkConnected.add(c.member_id));
+    (data.outgoing || []).forEach(c => comunidadHkPendingOutgoing.add(c.member_id));
     const el = document.getElementById('comunidad-hk-main-column');
     if (el && state.comunidadHKTab === 'conexiones') el.innerHTML = renderComunidadHKConnections();
   }
@@ -2027,7 +2054,12 @@ async function createGroup(){
   if (memErr) showToast('Grupo creado, pero no se pudo agregarte como admin: ' + memErr.message);
   if (photoFile){
     const { error: upErr } = await supabaseClient.storage.from('group-photos').upload('group-' + group.id, photoFile, { upsert: true, contentType: photoFile.type });
-    if (!upErr) await supabaseClient.from('groups').update({ photo_updated_at: new Date().toISOString() }).eq('id', group.id);
+    if (upErr){
+      showToast('Grupo creado, pero no se pudo subir la foto: ' + upErr.message);
+    } else {
+      const { data: updated, error: photoErr } = await supabaseClient.from('groups').update({ photo_updated_at: new Date().toISOString() }).eq('id', group.id).select().single();
+      if (photoErr || !updated) showToast('Grupo creado, pero no se pudo guardar la foto: ' + (photoErr ? photoErr.message : 'sin permiso'));
+    }
   }
   showToast('Grupo creado');
   comunidadHkShowCreateGroup = false;
@@ -2041,8 +2073,8 @@ async function uploadGroupPhoto(groupId, fileInputId){
   if (!file) return;
   const { error: upErr } = await supabaseClient.storage.from('group-photos').upload('group-' + groupId, file, { upsert: true, contentType: file.type });
   if (upErr){ showToast('No se pudo subir la foto: ' + upErr.message); return; }
-  const { error } = await supabaseClient.from('groups').update({ photo_updated_at: new Date().toISOString() }).eq('id', groupId);
-  if (error){ showToast('No se pudo actualizar el grupo: ' + error.message); return; }
+  const { data: updated, error } = await supabaseClient.from('groups').update({ photo_updated_at: new Date().toISOString() }).eq('id', groupId).select().single();
+  if (error || !updated){ showToast('No se pudo actualizar el grupo: ' + (error ? error.message : 'sin permiso para editar este grupo')); return; }
   showToast('Foto del grupo actualizada');
   comunidadHkGroupsLoaded = false;
   loadComunidadHkGroups();
@@ -2102,22 +2134,33 @@ function inviteConnectionSelectHtml(groupId){
   const accepted = comunidadHkConnectionsData.accepted || [];
   if (accepted.length === 0) return `<p style="font-size:12px;color:#9a958a;margin:8px 0 0">Todavía no tienes conexiones para invitar.</p>`;
   return `
-  <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-    <select id="invite-select-${groupId}" style="flex:1;min-width:160px;padding:8px 10px;border:1px solid #d8d2c6;border-radius:4px;font-size:13px">
-      ${accepted.map(c => `<option value="${c.member_id}">${esc([c.nombre, c.apellido].filter(Boolean).join(' '))}</option>`).join('')}
-    </select>
-    <button onclick="inviteConnectionToGroup('${groupId}')" style="background:#E17B2F;color:#fff;border:none;padding:8px 16px;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer">Invitar</button>
+  <div id="invite-panel-${groupId}">
+    <div style="max-height:170px;overflow-y:auto;margin-top:8px;border:1px solid #ece7dd;border-radius:6px;padding:6px 10px">
+      ${accepted.map(c => `
+      <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;color:#3f4247;cursor:pointer">
+        <input type="checkbox" value="${c.member_id}" style="accent-color:#E17B2F" />
+        ${esc([c.nombre, c.apellido].filter(Boolean).join(' '))}
+      </label>`).join('')}
+    </div>
+    <button onclick="inviteConnectionToGroup('${groupId}')" style="margin-top:8px;background:#E17B2F;color:#fff;border:none;padding:8px 16px;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer">Invitar seleccionados</button>
   </div>`;
 }
 
 async function inviteConnectionToGroup(groupId){
-  const select = document.getElementById('invite-select-' + groupId);
-  const memberId = select ? select.value : null;
-  if (!memberId) return;
-  const { error } = await supabaseClient.from('group_members').insert({ group_id: groupId, member_id: memberId, status: 'invited' });
-  if (error){ showToast('No se pudo invitar: ' + error.message); return; }
-  showToast('Invitación enviada');
-  notifyMember(memberId, 'group_invite', comunidadHKDisplayName() + ' te invitó a un grupo');
+  const panel = document.getElementById('invite-panel-' + groupId);
+  const memberIds = panel ? Array.from(panel.querySelectorAll('input[type=checkbox]:checked')).map(c => c.value) : [];
+  if (memberIds.length === 0){ showToast('Selecciona al menos una conexión'); return; }
+  let okCount = 0, failCount = 0;
+  for (const memberId of memberIds){
+    const { error } = await supabaseClient.from('group_members').insert({ group_id: groupId, member_id: memberId, status: 'invited' });
+    if (error){ failCount++; continue; }
+    okCount++;
+    notifyMember(memberId, 'group_invite', comunidadHKDisplayName() + ' te invitó a un grupo');
+  }
+  if (okCount) showToast(okCount + (okCount === 1 ? ' invitación enviada' : ' invitaciones enviadas') + (failCount ? ' (' + failCount + ' ya estaban en el grupo)' : ''));
+  else showToast('No se pudo invitar: ya son miembros o tienen invitación pendiente');
+  comunidadHkGroupsLoaded = false;
+  loadComunidadHkGroups();
 }
 
 function groupCardHtml(g){
@@ -2580,14 +2623,17 @@ function eventCardHtml(ev){
 
 async function toggleConnect(memberId, name){
   if (!comunidadHkMemberId){ showToast('No pudimos identificar tu perfil de miembro'); return; }
-  if (comunidadHkConnected.has(memberId)) return;
-  comunidadHkConnected.add(memberId);
+  if (comunidadHkConnected.has(memberId) || comunidadHkPendingOutgoing.has(memberId)) return;
+  comunidadHkPendingOutgoing.add(memberId);
   refreshComunidadHKRightRail();
+  const el = document.getElementById('comunidad-hk-main-column');
+  if (el && state.comunidadHKTab === 'miembros') el.innerHTML = renderComunidadHKMembers();
   const { error } = await supabaseClient.from('connections').insert({ requester_id: comunidadHkMemberId, recipient_id: memberId });
   if (error){
-    comunidadHkConnected.delete(memberId);
+    comunidadHkPendingOutgoing.delete(memberId);
     showToast('No se pudo enviar la solicitud: ' + error.message);
     refreshComunidadHKRightRail();
+    if (el && state.comunidadHKTab === 'miembros') el.innerHTML = renderComunidadHKMembers();
     return;
   }
   showToast('Solicitud enviada a ' + name);
@@ -2794,11 +2840,15 @@ function renderSocialRightRail(){
       const name = [p.nombre, p.apellido].filter(Boolean).join(' ');
       const role = [p.cargo, p.empresa].filter(Boolean).join(' · ');
       const connected = comunidadHkConnected.has(p.id);
+      const pending = comunidadHkPendingOutgoing.has(p.id);
+      let btnLabel = 'Conectar', btnDisabled = false;
+      if (connected){ btnLabel = 'Conectado'; btnDisabled = true; }
+      else if (pending){ btnLabel = 'Solicitado'; btnDisabled = true; }
       return `
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
         ${p.photo_url ? `<img src="${esc(p.photo_url)}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0" />` : socialAvatarHtml(name, 36)}
         <div style="flex:1;min-width:0"><p style="margin:0;font-size:13px;font-weight:600;color:#24262b">${esc(name)}</p><p style="margin:0;font-size:11px;color:#9a958a">${esc(role)}</p></div>
-        <button onclick="toggleConnect('${p.id}','${esc(name)}')" ${connected ? 'disabled' : ''} style="background:${connected ? '#f1ede5' : '#fff'};color:${connected ? '#9a958a' : '#E17B2F'};border:1px solid ${connected ? '#d8d2c6' : '#f0c9a4'};padding:5px 12px;border-radius:16px;font-size:11px;font-weight:600;cursor:${connected ? 'default' : 'pointer'}">${connected ? 'Solicitado' : 'Conectar'}</button>
+        <button onclick="toggleConnect('${p.id}','${esc(name)}')" ${btnDisabled ? 'disabled' : ''} style="background:${btnDisabled ? '#f1ede5' : '#fff'};color:${btnDisabled ? '#9a958a' : '#E17B2F'};border:1px solid ${btnDisabled ? '#d8d2c6' : '#f0c9a4'};padding:5px 12px;border-radius:16px;font-size:11px;font-weight:600;cursor:${btnDisabled ? 'default' : 'pointer'}">${btnLabel}</button>
       </div>`;
     }).join('')}
   </div>
@@ -3440,6 +3490,13 @@ function infoRequestLabels(r){
   return labels;
 }
 
+function pendingProgramLabels(r){
+  const labels = [];
+  if (pendingCoaching(r)) labels.push('Coaching');
+  if (pendingOutplacement(r)) labels.push('Outplacement');
+  return labels;
+}
+
 async function markContacted(id, program){
   const { data: { session } } = await supabaseClient.auth.getSession();
   const adminEmail = session && session.user ? session.user.email : null;
@@ -3534,16 +3591,20 @@ function renderContactQueues(){
 function personCardHtml(r, cvUrls){
   cvUrls = cvUrls || {};
   const areas = r.areas_interes || [];
-  const infoLabels = infoRequestLabels(r);
+  const programLabels = pendingProgramLabels(r);
+  const hasOtro = !!r.quiere_info_otro;
   return `
-  <div onclick="openCandidateDetail('${r.id}')" style="cursor:pointer;background:#fff;border:1px solid ${infoLabels.length ? '#f0c9a4' : '#ece7dd'};border-radius:8px;padding:22px 24px;display:flex;flex-direction:column;gap:12px;transition:all 0.2s ease" class="hk-card-hover">
-    ${infoLabels.length ? `<div style="background:#fdece0;border:1px solid #f0c9a4;border-radius:6px;padding:8px 12px;font-size:12px;font-weight:700;color:#b5601f;text-transform:uppercase;letter-spacing:0.03em">Solicita información: ${infoLabels.join(', ')}</div>` : ''}
+  <div onclick="openCandidateDetail('${r.id}')" style="cursor:pointer;background:#fff;border:1px solid ${programLabels.length ? '#f0c9a4' : '#ece7dd'};border-radius:8px;padding:22px 24px;display:flex;flex-direction:column;gap:12px;transition:all 0.2s ease" class="hk-card-hover">
+    ${programLabels.length ? `<div style="background:#fdece0;border:1px solid #f0c9a4;border-radius:6px;padding:8px 12px;font-size:12px;font-weight:700;color:#b5601f;text-transform:uppercase;letter-spacing:0.03em">Solicita información: ${programLabels.join(', ')}</div>` : ''}
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
       <div>
         <p style="font-family:'Newsreader',serif;font-size:18px;color:#24262b;margin:0;font-weight:500">${esc(r.nombre)} ${esc(r.apellido)}</p>
         <p style="font-size:13px;color:#767b82;margin:4px 0 0">${esc(r.cargo)} · ${esc(r.empresa)}</p>
       </div>
-      <span style="font-size:12px;color:#9a958a;white-space:nowrap">${new Date(r.created_at).toLocaleDateString('es-CL')}</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        ${hasOtro ? `<span style="font-size:10px;font-weight:700;color:#b5601f;background:#fdece0;border:1px solid #f0c9a4;border-radius:10px;padding:2px 8px;text-transform:uppercase;letter-spacing:0.03em;white-space:nowrap">Otro</span>` : ''}
+        <span style="font-size:12px;color:#9a958a;white-space:nowrap">${new Date(r.created_at).toLocaleDateString('es-CL')}</span>
+      </div>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:6px 20px;font-size:13px;color:#3f4247">
       <span>${esc(r.email)}</span>
@@ -3589,6 +3650,7 @@ function openCandidateDetail(id){
     ${r.motivacion ? detailField('Qué busca al unirse', esc(r.motivacion)) : ''}
     ${infoRequestLabels(r).length ? detailField('Solicita información sobre', infoRequestLabels(r).join(', ')) : ''}
     ${r.quiere_info_otro ? detailField('Detalle de "otro"', esc(r.quiere_info_otro)) : ''}
+    ${r.quiere_networking !== null && r.quiere_networking !== undefined ? detailField('Quiere formar parte de la red de networking', r.quiere_networking ? 'Sí' : 'No') : ''}
     ${detailField('Quiere recibir comunicaciones', r.acepta_comunicaciones ? 'Sí' : 'No')}
     ${detailField('CV', cvLinksHtml(r, adminListData.cvUrls, false))}
     ${detailField('Usuario en base de datos', r.en_base_datos
@@ -3631,8 +3693,8 @@ function filterInscripcionesForSearch(list, term){
 
 function sortForAdmin(list){
   return [...list].sort((a, b) => {
-    const aFlag = infoRequestLabels(a).length ? 1 : 0;
-    const bFlag = infoRequestLabels(b).length ? 1 : 0;
+    const aFlag = pendingProgramLabels(a).length ? 1 : 0;
+    const bFlag = pendingProgramLabels(b).length ? 1 : 0;
     if (aFlag !== bFlag) return bFlag - aFlag;
     return new Date(b.created_at) - new Date(a.created_at);
   });
