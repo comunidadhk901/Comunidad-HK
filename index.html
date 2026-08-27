@@ -399,6 +399,8 @@ async function headerAdminLogout(){
   isAdminSession = false;
   comunidadHkVerifiedEmail = null;
   comunidadHkSessionChecked = false;
+  comunidadHkMemberId = null;
+  comunidadHkFeedLoaded = false;
   clearCommunitySession();
   renderAdminSessionControl();
   goTo(state.page);
@@ -1565,6 +1567,7 @@ async function checkComunidadHkSession(){
   const { data } = await supabaseClient.rpc('is_community_member', { check_email: session.user.email });
   if (data){
     comunidadHkVerifiedEmail = session.user.email;
+    await loadComunidadHkMemberId();
     if (state.page === 'comunidad-hk') renderMain();
   }
 }
@@ -1621,6 +1624,7 @@ async function verifyComunidadHkOtp(){
   }
   comunidadHkVerifiedEmail = comunidadHkOtpEmailInput;
   comunidadHkOtpStep = 'email';
+  await loadComunidadHkMemberId();
   renderMain();
 }
 
@@ -1777,12 +1781,6 @@ const DUMMY_GROUPS = [
   {name:'Emprendedores', members:76, emoji:'🚀'},
 ];
 
-const DUMMY_POSTS = [
-  {name:'Carolina Pérez', role:'Gerente de Personas en TecnoGlobal', time:'2h', text:'¡Hola a todos! Encantada de ser parte de esta comunidad. Me apasiona el desarrollo de talento y el liderazgo consciente. Feliz de conectar y aprender juntos 😊', likes:12, liked:false,
-    comments:[{name:'Luis Fernández', time:'1h', text:'¡Bienvenida Carolina! Qué bueno tenerte por acá 👋'}]},
-  {name:'Matías Urrutia', role:'Gerente General en Prime BDP', time:'Ayer', text:'Les comparto este artículo que me pareció muy relevante sobre tendencias de liderazgo para los próximos años.', likes:6, liked:false, comments:[]},
-];
-
 const DUMMY_ACTIVE_PEOPLE = [
   {name:'María José López', role:'HR Manager en Softtek'},
   {name:'Andrés Valenzuela', role:'Director Comercial en Abastible'},
@@ -1815,37 +1813,247 @@ function refreshComunidadHKRightRail(){
   if (el) el.innerHTML = renderSocialRightRail();
 }
 
-function publishDummyPost(){
+let comunidadHkMemberId = null;
+
+async function loadComunidadHkMemberId(){
+  const { data } = await supabaseClient.rpc('my_member_id');
+  comunidadHkMemberId = data || null;
+}
+
+let comunidadHkFeedLoaded = false;
+let comunidadHkFeedPosts = [];
+
+async function loadComunidadHkFeed(){
+  comunidadHkFeedLoaded = true;
+  const { data, error } = await supabaseClient.rpc('get_feed', { limit_count: 30 });
+  if (!error && data){
+    comunidadHkFeedPosts = data;
+    refreshComunidadHKFeed();
+  }
+}
+
+let comunidadHkComposerMode = 'text';
+let comunidadHkComposerFile = null;
+let comunidadHkComposerPollOptions = ['', ''];
+
+function setComposerMode(mode){
+  comunidadHkComposerMode = mode;
+  comunidadHkComposerFile = null;
+  if (mode === 'poll') comunidadHkComposerPollOptions = ['', ''];
+  refreshComunidadHKFeed();
+}
+
+function clearComposerAttachment(){
+  comunidadHkComposerMode = 'text';
+  comunidadHkComposerFile = null;
+  refreshComunidadHKFeed();
+}
+
+function addComposerPollOption(){
+  if (comunidadHkComposerPollOptions.length >= 6) return;
+  comunidadHkComposerPollOptions.push('');
+  refreshComunidadHKFeed();
+}
+
+function handleComposerFileChange(e, kind){
+  const file = e.target.files[0];
+  if (!file) return;
+  comunidadHkComposerFile = file;
+  comunidadHkComposerMode = kind;
+  refreshComunidadHKFeed();
+}
+
+function renderComposerAttachmentArea(){
+  if ((comunidadHkComposerMode === 'photo' || comunidadHkComposerMode === 'video') && comunidadHkComposerFile){
+    const url = URL.createObjectURL(comunidadHkComposerFile);
+    const media = comunidadHkComposerMode === 'photo'
+      ? `<img src="${url}" style="max-height:220px;border-radius:8px;display:block;max-width:100%" />`
+      : `<video src="${url}" controls style="max-height:220px;border-radius:8px;display:block;max-width:100%"></video>`;
+    return `<div style="position:relative;margin-bottom:14px">${media}<button onclick="clearComposerAttachment()" style="position:absolute;top:8px;right:8px;background:rgba(36,38,43,0.7);color:#fff;border:none;border-radius:50%;width:26px;height:26px;cursor:pointer">×</button></div>`;
+  }
+  if (comunidadHkComposerMode === 'poll'){
+    return `
+    <div style="border:1px solid #ece7dd;border-radius:8px;padding:16px;margin-bottom:14px">
+      <input id="composer-poll-question" type="text" placeholder="Escribe tu pregunta..." style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d8d2c6;border-radius:4px;font-size:14px;margin-bottom:10px" />
+      ${comunidadHkComposerPollOptions.map((v, i) => `<input type="text" value="${esc(v)}" placeholder="Opción ${i + 1}" oninput="comunidadHkComposerPollOptions[${i}]=this.value" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid #d8d2c6;border-radius:4px;font-size:13px;margin-bottom:8px" />`).join('')}
+      <div style="display:flex;gap:14px">
+        <a onclick="addComposerPollOption()" style="font-size:12px;color:#E17B2F;font-weight:600;cursor:pointer">+ Agregar opción</a>
+        <a onclick="clearComposerAttachment()" style="font-size:12px;color:#767b82;cursor:pointer">Cancelar encuesta</a>
+      </div>
+    </div>`;
+  }
+  if (comunidadHkComposerMode === 'event'){
+    return `
+    <div style="border:1px solid #ece7dd;border-radius:8px;padding:16px;margin-bottom:14px;display:flex;flex-direction:column;gap:8px">
+      <input id="composer-event-title" type="text" placeholder="Título del evento" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d8d2c6;border-radius:4px;font-size:14px" />
+      <input id="composer-event-date" type="datetime-local" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d8d2c6;border-radius:4px;font-size:14px" />
+      <input id="composer-event-location" type="text" placeholder="Lugar (o link si es online)" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d8d2c6;border-radius:4px;font-size:14px" />
+      <textarea id="composer-event-desc" rows="2" placeholder="Descripción del evento" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d8d2c6;border-radius:4px;font-size:14px;resize:vertical;font-family:'Public Sans',sans-serif"></textarea>
+      <a onclick="clearComposerAttachment()" style="font-size:12px;color:#767b82;cursor:pointer">Cancelar evento</a>
+    </div>`;
+  }
+  return '';
+}
+
+async function notifyMember(recipientId, type, payload){
+  if (!recipientId || !comunidadHkMemberId || recipientId === comunidadHkMemberId) return;
+  try { await supabaseClient.from('notifications').insert({ recipient_id: recipientId, actor_id: comunidadHkMemberId, type, payload }); } catch (e) {}
+}
+
+function resetComposerAfterPublish(){
+  comunidadHkComposerMode = 'text';
+  comunidadHkComposerFile = null;
+  comunidadHkComposerPollOptions = ['', ''];
+  setComunidadHKTab('feed');
+}
+
+async function publishRealPost(){
+  if (!comunidadHkMemberId){ showToast('No pudimos identificar tu perfil de miembro'); return; }
+  const btn = document.getElementById('composer-publish-btn');
   const input = document.getElementById('social-composer-input');
-  if (!input) return;
-  const text = input.value.trim();
-  if (!text) return;
-  DUMMY_POSTS.unshift({
-    name: comunidadHKDisplayName(),
-    role: (memberProfile && (memberProfile.cargo || memberProfile.empresa)) ? [memberProfile.cargo, memberProfile.empresa].filter(Boolean).join(' · ') : 'Miembro de Comunidad HK',
-    time: 'Ahora', text, likes: 0, liked: false, comments: [],
-  });
-  input.value = '';
+  const text = input ? input.value.trim() : '';
+
+  if (comunidadHkComposerMode === 'poll'){
+    const question = (document.getElementById('composer-poll-question').value || '').trim();
+    const options = comunidadHkComposerPollOptions.map(o => o.trim()).filter(Boolean);
+    if (!question || options.length < 2){ showToast('Escribe una pregunta y al menos 2 opciones'); return; }
+    if (btn) btn.disabled = true;
+    const { data: post, error } = await supabaseClient.from('posts').insert({ author_id: comunidadHkMemberId, text: text || null }).select().single();
+    if (error){ showToast('No se pudo publicar: ' + error.message); if (btn) btn.disabled = false; return; }
+    const { data: poll, error: pollErr } = await supabaseClient.from('polls').insert({ post_id: post.id, question }).select().single();
+    if (!pollErr) await supabaseClient.from('poll_options').insert(options.map(o => ({ poll_id: poll.id, option_text: o })));
+    resetComposerAfterPublish();
+    loadComunidadHkFeed();
+    return;
+  }
+
+  if (comunidadHkComposerMode === 'event'){
+    const title = (document.getElementById('composer-event-title').value || '').trim();
+    const dateVal = document.getElementById('composer-event-date').value;
+    const location = (document.getElementById('composer-event-location').value || '').trim();
+    const desc = (document.getElementById('composer-event-desc').value || '').trim();
+    if (!title){ showToast('Ponle un título al evento'); return; }
+    if (btn) btn.disabled = true;
+    const { data: eventRow, error: evErr } = await supabaseClient.from('events').insert({
+      title, description: desc || null, event_date: dateVal ? new Date(dateVal).toISOString() : null,
+      location: location || null, created_by_id: comunidadHkMemberId,
+    }).select().single();
+    if (evErr){ showToast('No se pudo crear el evento: ' + evErr.message); if (btn) btn.disabled = false; return; }
+    const { error } = await supabaseClient.from('posts').insert({ author_id: comunidadHkMemberId, text: text || null, event_id: eventRow.id });
+    if (error){ showToast('No se pudo publicar: ' + error.message); if (btn) btn.disabled = false; return; }
+    resetComposerAfterPublish();
+    loadComunidadHkFeed();
+    return;
+  }
+
+  if (!text && !comunidadHkComposerFile) return;
+  if (btn) btn.disabled = true;
+
+  let mediaType = null, mediaPath = null;
+  if (comunidadHkComposerFile){
+    mediaType = comunidadHkComposerMode === 'video' ? 'video' : 'photo';
+    const safeName = comunidadHkComposerFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+    const path = comunidadHkMemberId + '/' + crypto.randomUUID() + '-' + safeName;
+    const { error: upErr } = await supabaseClient.storage.from('post-media').upload(path, comunidadHkComposerFile);
+    if (upErr){ showToast('No se pudo subir el archivo: ' + upErr.message); if (btn) btn.disabled = false; return; }
+    mediaPath = path;
+  }
+
+  const { error } = await supabaseClient.from('posts').insert({ author_id: comunidadHkMemberId, text: text || null, media_type: mediaType, media_storage_path: mediaPath });
+  if (error){ showToast('No se pudo publicar: ' + error.message); if (btn) btn.disabled = false; return; }
+  resetComposerAfterPublish();
+  loadComunidadHkFeed();
+}
+
+async function toggleRealLike(postId){
+  if (!comunidadHkMemberId) return;
+  const post = comunidadHkFeedPosts.find(p => p.id === postId);
+  if (!post) return;
+  if (post.liked_by_me){
+    await supabaseClient.from('post_likes').delete().eq('post_id', postId).eq('member_id', comunidadHkMemberId);
+    post.liked_by_me = false; post.like_count = Math.max(0, post.like_count - 1);
+  } else {
+    await supabaseClient.from('post_likes').insert({ post_id: postId, member_id: comunidadHkMemberId });
+    post.liked_by_me = true; post.like_count += 1;
+    notifyMember(post.author_id, 'like', 'Le dio like a tu publicación');
+  }
   refreshComunidadHKFeed();
 }
 
-function toggleDummyLike(idx){
-  const post = DUMMY_POSTS[idx];
-  if (!post) return;
-  post.liked = !post.liked;
-  post.likes += post.liked ? 1 : -1;
-  refreshComunidadHKFeed();
-}
-
-function addDummyComment(idx){
-  const input = document.getElementById('social-comment-input-' + idx);
-  if (!input) return;
+async function addRealComment(postId){
+  if (!comunidadHkMemberId) return;
+  const input = document.getElementById('comment-input-' + postId);
   const text = input.value.trim();
   if (!text) return;
-  const post = DUMMY_POSTS[idx];
-  if (!post) return;
-  post.comments.push({ name: comunidadHKDisplayName(), time: 'Ahora', text });
-  refreshComunidadHKFeed();
+  const { error } = await supabaseClient.from('post_comments').insert({ post_id: postId, author_id: comunidadHkMemberId, text });
+  if (error){ showToast('No se pudo comentar: ' + error.message); return; }
+  const post = comunidadHkFeedPosts.find(p => p.id === postId);
+  notifyMember(post ? post.author_id : null, 'comment', 'Comentó tu publicación');
+  loadComunidadHkFeed();
+}
+
+async function voteInPoll(pollId, optionId){
+  if (!comunidadHkMemberId) return;
+  const { error } = await supabaseClient.from('poll_votes').insert({ poll_id: pollId, option_id: optionId, member_id: comunidadHkMemberId });
+  if (error){ showToast('No se pudo votar: ' + error.message); return; }
+  loadComunidadHkFeed();
+}
+
+async function rsvpToEvent(eventId){
+  if (!comunidadHkMemberId) return;
+  const { error } = await supabaseClient.from('event_rsvps').insert({ event_id: eventId, member_id: comunidadHkMemberId });
+  if (error){ showToast('No se pudo registrar tu participación: ' + error.message); return; }
+  showToast('Listo, quedaste registrado para participar');
+  loadComunidadHkFeed();
+}
+
+function formatRelativeTime(iso){
+  if (!iso) return '';
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'Ahora';
+  if (mins < 60) return mins + 'm';
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + 'h';
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return days + 'd';
+  return new Date(iso).toLocaleDateString('es-CL');
+}
+
+function pollHtml(poll){
+  const totalVotes = (poll.options || []).reduce((s, o) => s + (o.vote_count || 0), 0);
+  return `
+  <div style="border:1px solid #ece7dd;border-radius:8px;padding:16px;margin-bottom:14px">
+    <p style="margin:0 0 12px;font-size:14px;font-weight:600;color:#24262b">${esc(poll.question)}</p>
+    ${(poll.options || []).map(o => {
+      const pct = totalVotes ? Math.round((o.vote_count || 0) / totalVotes * 100) : 0;
+      const mine = poll.my_vote_option_id === o.id;
+      return `
+      <div onclick="${poll.my_vote_option_id ? '' : `voteInPoll('${poll.id}','${o.id}')`}" style="position:relative;border:1px solid ${mine ? '#E17B2F' : '#d8d2c6'};border-radius:6px;padding:9px 12px;margin-bottom:8px;cursor:${poll.my_vote_option_id ? 'default' : 'pointer'};overflow:hidden">
+        ${poll.my_vote_option_id ? `<div style="position:absolute;left:0;top:0;bottom:0;width:${pct}%;background:#fdf1e6;z-index:0"></div>` : ''}
+        <div style="position:relative;display:flex;justify-content:space-between;font-size:13px;color:#24262b;z-index:1">
+          <span>${mine ? '✓ ' : ''}${esc(o.option_text)}</span>
+          ${poll.my_vote_option_id ? `<span style="color:#9a958a">${pct}%</span>` : ''}
+        </div>
+      </div>`;
+    }).join('')}
+    <p style="margin:8px 0 0;font-size:11px;color:#9a958a">${totalVotes} voto${totalVotes === 1 ? '' : 's'}</p>
+  </div>`;
+}
+
+function eventCardHtml(ev){
+  const dateStr = ev.event_date ? new Date(ev.event_date).toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' }) : 'Fecha por confirmar';
+  return `
+  <div style="border:1px solid #ece7dd;border-radius:8px;padding:16px;margin-bottom:14px;background:#faf8f4">
+    <p style="margin:0 0 4px;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#1d6f9c;font-weight:700">📅 Evento</p>
+    <p style="margin:0 0 6px;font-size:16px;font-weight:600;color:#24262b;font-family:'Newsreader',serif">${esc(ev.title)}</p>
+    <p style="margin:0 0 4px;font-size:13px;color:#767b82">${esc(dateStr)}${ev.location ? ' · ' + esc(ev.location) : ''}</p>
+    ${ev.description ? `<p style="margin:8px 0;font-size:13px;color:#3f4247">${esc(ev.description)}</p>` : ''}
+    <div style="display:flex;align-items:center;gap:12px;margin-top:10px">
+      <button onclick="rsvpToEvent('${ev.id}')" ${ev.rsvped_by_me ? 'disabled' : ''} style="background:${ev.rsvped_by_me ? '#f1ede5' : '#E17B2F'};color:${ev.rsvped_by_me ? '#9a958a' : '#fff'};border:none;padding:8px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:${ev.rsvped_by_me ? 'default' : 'pointer'}">${ev.rsvped_by_me ? 'Vas a participar' : 'Pedir participar'}</button>
+      <span style="font-size:12px;color:#9a958a">${ev.rsvp_count} participando</span>
+    </div>
+  </div>`;
 }
 
 function toggleConnect(name){
@@ -1876,63 +2084,72 @@ function feedInterestChipsHtml(){
   }).join('');
 }
 
-function socialPostCardHtml(post, idx){
+function socialPostCardHtml(post){
+  const name = esc([post.author_nombre, post.author_apellido].filter(Boolean).join(' '));
+  const role = esc([post.author_cargo, post.author_empresa].filter(Boolean).join(' · '));
+  const mediaUrl = post.media_storage_path ? (SUPABASE_URL + '/storage/v1/object/public/post-media/' + post.media_storage_path) : null;
   return `
   <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:20px;margin-bottom:20px">
     <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:12px">
-      ${socialAvatarHtml(post.name, 44)}
+      ${post.author_photo_url ? `<img src="${esc(post.author_photo_url)}" alt="" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0" />` : socialAvatarHtml(post.author_nombre, 44)}
       <div style="flex:1;min-width:0">
-        <p style="margin:0;font-weight:600;color:#24262b;font-size:15px">${esc(post.name)}</p>
-        <p style="margin:2px 0 0;color:#9a958a;font-size:12px">${esc(post.role)}</p>
+        <p style="margin:0;font-weight:600;color:#24262b;font-size:15px">${name}</p>
+        <p style="margin:2px 0 0;color:#9a958a;font-size:12px">${role}</p>
       </div>
-      <span style="color:#9a958a;font-size:12px;white-space:nowrap">${esc(post.time)}</span>
+      <span style="color:#9a958a;font-size:12px;white-space:nowrap">${formatRelativeTime(post.created_at)}</span>
     </div>
-    <p style="font-size:14px;color:#3f4247;line-height:1.6;margin:0 0 14px;white-space:pre-line">${esc(post.text)}</p>
+    ${post.text ? `<p style="font-size:14px;color:#3f4247;line-height:1.6;margin:0 0 14px;white-space:pre-line">${esc(post.text)}</p>` : ''}
+    ${mediaUrl && post.media_type === 'photo' ? `<img src="${mediaUrl}" style="width:100%;max-height:420px;object-fit:cover;border-radius:8px;margin-bottom:14px" />` : ''}
+    ${mediaUrl && post.media_type === 'video' ? `<video src="${mediaUrl}" controls style="width:100%;max-height:420px;border-radius:8px;margin-bottom:14px"></video>` : ''}
+    ${post.poll ? pollHtml(post.poll) : ''}
+    ${post.event ? eventCardHtml(post.event) : ''}
     <div style="display:flex;justify-content:space-between;font-size:12px;color:#9a958a;padding-bottom:10px;border-bottom:1px solid #f1ede5;margin-bottom:10px">
-      <span>${post.likes} Me gusta</span>
-      <span>${post.comments.length} comentario${post.comments.length === 1 ? '' : 's'}</span>
+      <span>${post.like_count} Me gusta</span>
+      <span>${post.comment_count} comentario${post.comment_count === 1 ? '' : 's'}</span>
     </div>
     <div style="display:flex;gap:24px;font-size:13px;font-weight:600;padding-bottom:14px;border-bottom:1px solid #f1ede5;margin-bottom:14px">
-      <span onclick="toggleDummyLike(${idx})" style="cursor:pointer;color:${post.liked ? '#E17B2F' : '#767b82'}">${post.liked ? '👍 Te gusta' : '👍 Me gusta'}</span>
-      <span onclick="document.getElementById('social-comment-input-${idx}').focus()" style="cursor:pointer;color:#767b82">💬 Comentar</span>
+      <span onclick="toggleRealLike('${post.id}')" style="cursor:pointer;color:${post.liked_by_me ? '#E17B2F' : '#767b82'}">${post.liked_by_me ? '👍 Te gusta' : '👍 Me gusta'}</span>
+      <span onclick="document.getElementById('comment-input-${post.id}').focus()" style="cursor:pointer;color:#767b82">💬 Comentar</span>
       <span onclick="showToast('Función de compartir próximamente')" style="cursor:pointer;color:#767b82">↗ Compartir</span>
     </div>
-    ${post.comments.map(c => `
+    ${(post.recent_comments || []).map(c => `
       <div style="display:flex;gap:10px;margin-bottom:12px">
-        ${socialAvatarHtml(c.name, 32)}
+        ${socialAvatarHtml(c.author_nombre, 32)}
         <div>
-          <p style="margin:0;font-size:13px;font-weight:600;color:#24262b">${esc(c.name)}</p>
+          <p style="margin:0;font-size:13px;font-weight:600;color:#24262b">${esc([c.author_nombre, c.author_apellido].filter(Boolean).join(' '))}</p>
           <p style="margin:2px 0 4px;font-size:13px;color:#3f4247">${esc(c.text)}</p>
-          <p style="margin:0;font-size:11px;color:#9a958a">${esc(c.time)} · Me gusta · Responder</p>
+          <p style="margin:0;font-size:11px;color:#9a958a">${formatRelativeTime(c.created_at)}</p>
         </div>
       </div>`).join('')}
     <div style="display:flex;gap:10px;align-items:center">
-      ${socialAvatarHtml('Tú', 32)}
-      <input id="social-comment-input-${idx}" type="text" placeholder="Escribe un comentario..." onkeydown="if(event.key==='Enter'){addDummyComment(${idx})}" style="flex:1;border:1px solid #d8d2c6;border-radius:16px;padding:8px 14px;font-size:13px;color:#24262b" />
+      ${socialAvatarHtml(comunidadHKDisplayName(), 32)}
+      <input id="comment-input-${post.id}" type="text" placeholder="Escribe un comentario..." onkeydown="if(event.key==='Enter'){addRealComment('${post.id}')}" style="flex:1;border:1px solid #d8d2c6;border-radius:16px;padding:8px 14px;font-size:13px;color:#24262b" />
     </div>
   </div>`;
 }
 
 function renderSocialFeed(){
+  if (!comunidadHkFeedLoaded) loadComunidadHkFeed();
   const displayName = comunidadHKDisplayName();
   return `
   <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:20px;margin-bottom:20px">
     <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px">
       ${socialAvatarHtml(displayName, 44)}
-      <input id="social-composer-input" type="text" placeholder="¿Qué estás pensando, ${esc(displayName)}?" onkeydown="if(event.key==='Enter'){publishDummyPost()}" style="flex:1;border:1px solid #ece7dd;background:#faf8f4;border-radius:20px;padding:12px 18px;color:#24262b;font-size:14px" />
+      <input id="social-composer-input" type="text" placeholder="¿Qué estás pensando, ${esc(displayName)}?" onkeydown="if(event.key==='Enter'){publishRealPost()}" style="flex:1;border:1px solid #ece7dd;background:#faf8f4;border-radius:20px;padding:12px 18px;color:#24262b;font-size:14px" />
     </div>
+    ${renderComposerAttachmentArea()}
+    <input type="file" id="composer-file-photo" accept="image/*" style="display:none" onchange="handleComposerFileChange(event,'photo')" />
+    <input type="file" id="composer-file-video" accept="video/*" style="display:none" onchange="handleComposerFileChange(event,'video')" />
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;border-top:1px solid #f1ede5;padding-top:14px">
       <div style="display:flex;gap:18px;flex-wrap:wrap">
-        <span onclick="showToast('Adjuntar fotos: muy pronto')" style="font-size:13px;color:#767b82;cursor:pointer">📷 Foto</span>
-        <span onclick="showToast('Adjuntar video: muy pronto')" style="font-size:13px;color:#767b82;cursor:pointer">🎥 Video</span>
-        <span onclick="showToast('Encuestas: muy pronto')" style="font-size:13px;color:#767b82;cursor:pointer">📊 Encuesta</span>
-        <span onclick="showToast('Eventos: muy pronto')" style="font-size:13px;color:#767b82;cursor:pointer">📅 Evento</span>
+        <span onclick="document.getElementById('composer-file-photo').click()" style="font-size:13px;color:#767b82;cursor:pointer">📷 Foto</span>
+        <span onclick="document.getElementById('composer-file-video').click()" style="font-size:13px;color:#767b82;cursor:pointer">🎥 Video</span>
+        <span onclick="setComposerMode('poll')" style="font-size:13px;color:#767b82;cursor:pointer">📊 Encuesta</span>
+        <span onclick="setComposerMode('event')" style="font-size:13px;color:#767b82;cursor:pointer">📅 Evento</span>
       </div>
-      <button onclick="publishDummyPost()" style="background:#E17B2F;color:#fff;border:none;padding:9px 22px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer">Publicar</button>
+      <button id="composer-publish-btn" onclick="publishRealPost()" style="background:#E17B2F;color:#fff;border:none;padding:9px 22px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer">Publicar</button>
     </div>
   </div>
-
-  ${DUMMY_POSTS.slice(0, 1).map((post, i) => socialPostCardHtml(post, i)).join('')}
 
   <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:20px;margin-bottom:20px">
     <p style="font-family:'Newsreader',serif;font-size:17px;color:#24262b;margin:0 0 4px;font-weight:500">Encuentra miembros por intereses</p>
@@ -1940,9 +2157,9 @@ function renderSocialFeed(){
     <div id="comunidad-hk-interest-chips" style="display:flex;flex-wrap:wrap;gap:8px">${feedInterestChipsHtml()}</div>
   </div>
 
-  ${DUMMY_POSTS.slice(1).map((post, i) => socialPostCardHtml(post, i + 1)).join('')}
-
-  <p style="text-align:center;color:#9a958a;font-size:12px;padding:12px 0">Vista previa del diseño: las publicaciones y comentarios que agregues aquí son solo de ejemplo y no se guardan.</p>`;
+  ${!comunidadHkFeedLoaded ? `<p style="text-align:center;color:#9a958a;font-size:13px;padding:24px 0">Cargando publicaciones…</p>` : ''}
+  ${comunidadHkFeedLoaded && comunidadHkFeedPosts.length === 0 ? `<p style="text-align:center;color:#9a958a;font-size:13px;padding:24px 0">Todavía no hay publicaciones. ¡Sé el primero!</p>` : ''}
+  ${comunidadHkFeedPosts.map(post => socialPostCardHtml(post)).join('')}`;
 }
 
 function renderSocialRightRail(){
