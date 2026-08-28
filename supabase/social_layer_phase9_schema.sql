@@ -70,6 +70,8 @@ grant execute on function get_active_members(int) to authenticated;
 --    de esta pregunta (quiere_networking = null) se siguen mostrando.
 -- ---------------------------------------------------------------------
 
+drop function if exists list_visible_members();
+
 create or replace function list_visible_members()
 returns table (
   id uuid, nombre text, apellido text, cargo text, empresa text,
