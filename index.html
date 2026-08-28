@@ -412,6 +412,8 @@ async function headerAdminLogout(){
   comunidadHkPendingOutgoing = new Set();
   comunidadHkActiveMembersLoaded = false;
   comunidadHkActiveMembers = [];
+  comunidadHkEventsLoaded = false;
+  comunidadHkEvents = [];
   comunidadHkNotifications = [];
   comunidadHkUnreadCount = 0;
   comunidadHkGroupsLoaded = false;
@@ -1606,6 +1608,7 @@ function renderComunidadHKPage(){
   else if (tab === 'perfil-miembro') content = renderViewedMemberProfile();
   else if (tab === 'grupo-detalle') content = renderGroupDetail();
   else if (tab === 'programas') content = renderProgramasChooser();
+  else if (tab === 'eventos') content = renderComunidadHKEventos();
   else content = comingSoonPanel(SOCIAL_TAB_LABELS[tab] || 'Esta sección');
   const showRightRail = tab === 'feed';
 
@@ -1927,6 +1930,29 @@ const SOCIAL_TAB_LABELS = {
   conexiones: 'Mis conexiones', mensajes: 'Mensajes', notificaciones: 'Notificaciones',
   miembros: 'Miembros', publicaciones: 'Publicaciones', grupos: 'Grupos', eventos: 'Eventos',
 };
+
+let comunidadHkEventsLoaded = false;
+let comunidadHkEvents = [];
+
+async function loadComunidadHkEvents(){
+  comunidadHkEventsLoaded = true;
+  const { data, error } = await supabaseClient.rpc('get_events');
+  if (!error && data){
+    comunidadHkEvents = data;
+    const el = document.getElementById('comunidad-hk-main-column');
+    if (el && state.comunidadHKTab === 'eventos') el.innerHTML = renderComunidadHKEventos();
+  }
+}
+
+function renderComunidadHKEventos(){
+  if (!comunidadHkEventsLoaded) loadComunidadHkEvents();
+  return `
+  <h1 style="font-family:'Newsreader',serif;font-size:24px;color:#24262b;margin:0 0 6px;font-weight:500">Eventos</h1>
+  <p style="color:#767b82;font-size:14px;margin:0 0 24px">Eventos de la Comunidad HK. Créalos desde el Feed.</p>
+  ${!comunidadHkEventsLoaded ? `<p style="color:#9a958a;font-size:14px">Cargando eventos…</p>`
+    : comunidadHkEvents.length === 0 ? `<p style="color:#9a958a;font-size:14px">Todavía no hay eventos. Puedes crear uno desde el Feed (📅 Evento).</p>`
+    : `<div style="max-width:640px">${comunidadHkEvents.map(ev => eventCardHtml(ev)).join('')}</div>`}`;
+}
 
 function renderProgramasChooser(){
   return `
@@ -2600,6 +2626,7 @@ async function loadComunidadHkFeed(){
 let comunidadHkComposerMode = 'text';
 let comunidadHkComposerFile = null;
 let comunidadHkComposerPollOptions = ['', ''];
+let comunidadHkComposerEventPhoto = null;
 
 function setComposerMode(mode){
   comunidadHkComposerMode = mode;
@@ -2611,6 +2638,7 @@ function setComposerMode(mode){
 function clearComposerAttachment(){
   comunidadHkComposerMode = 'text';
   comunidadHkComposerFile = null;
+  comunidadHkComposerEventPhoto = null;
   refreshComunidadHKFeed();
 }
 
@@ -2654,10 +2682,23 @@ function renderComposerAttachmentArea(){
       <input id="composer-event-date" type="datetime-local" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d8d2c6;border-radius:4px;font-size:14px" />
       <input id="composer-event-location" type="text" placeholder="Lugar (o link si es online)" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d8d2c6;border-radius:4px;font-size:14px" />
       <textarea id="composer-event-desc" rows="2" placeholder="Descripción del evento" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d8d2c6;border-radius:4px;font-size:14px;resize:vertical;font-family:'Public Sans',sans-serif"></textarea>
+      <label style="font-size:12px;color:#767b82">Foto del evento (opcional)</label>
+      ${comunidadHkComposerEventPhoto ? `
+        <div style="position:relative">
+          <img src="${URL.createObjectURL(comunidadHkComposerEventPhoto)}" style="max-height:180px;border-radius:8px;display:block;max-width:100%" />
+          <button onclick="comunidadHkComposerEventPhoto=null;refreshComunidadHKFeed()" style="position:absolute;top:8px;right:8px;background:rgba(36,38,43,0.7);color:#fff;border:none;border-radius:50%;width:26px;height:26px;cursor:pointer">×</button>
+        </div>` : `<input id="composer-event-photo" type="file" accept="image/*" onchange="handleComposerEventPhotoChange(event)" style="font-size:13px" />`}
       <a onclick="clearComposerAttachment()" style="font-size:12px;color:#767b82;cursor:pointer">Cancelar evento</a>
     </div>`;
   }
   return '';
+}
+
+function handleComposerEventPhotoChange(e){
+  const file = e.target.files[0];
+  if (!file) return;
+  comunidadHkComposerEventPhoto = file;
+  refreshComunidadHKFeed();
 }
 
 async function notifyMember(recipientId, type, payload){
@@ -2669,6 +2710,7 @@ function resetComposerAfterPublish(){
   comunidadHkComposerMode = 'text';
   comunidadHkComposerFile = null;
   comunidadHkComposerPollOptions = ['', ''];
+  comunidadHkComposerEventPhoto = null;
   setComunidadHKTab('feed');
 }
 
@@ -2704,8 +2746,14 @@ async function publishRealPost(){
       location: location || null, created_by_id: comunidadHkMemberId,
     }).select().single();
     if (evErr){ showToast('No se pudo crear el evento: ' + evErr.message); if (btn) btn.disabled = false; return; }
+    if (comunidadHkComposerEventPhoto){
+      const { error: upErr } = await supabaseClient.storage.from('event-photos').upload('event-' + eventRow.id, comunidadHkComposerEventPhoto, { upsert: true, contentType: comunidadHkComposerEventPhoto.type });
+      if (!upErr) await supabaseClient.from('events').update({ photo_updated_at: new Date().toISOString() }).eq('id', eventRow.id);
+      else showToast('Evento creado, pero no se pudo subir la foto: ' + upErr.message);
+    }
     const { error } = await supabaseClient.from('posts').insert({ author_id: comunidadHkMemberId, text: text || null, event_id: eventRow.id });
     if (error){ showToast('No se pudo publicar: ' + error.message); if (btn) btn.disabled = false; return; }
+    comunidadHkEventsLoaded = false;
     resetComposerAfterPublish();
     loadComunidadHkFeed();
     return;
@@ -2831,7 +2879,8 @@ async function rsvpToEvent(eventId){
   const { error } = await supabaseClient.from('event_rsvps').insert({ event_id: eventId, member_id: comunidadHkMemberId });
   if (error){ showToast('No se pudo registrar tu participación: ' + error.message); return; }
   showToast('Listo, quedaste registrado para participar');
-  loadComunidadHkFeed();
+  if (state.comunidadHKTab === 'eventos'){ comunidadHkEventsLoaded = false; loadComunidadHkEvents(); }
+  else { comunidadHkFeedLoaded = false; loadComunidadHkFeed(); }
 }
 
 function formatRelativeTime(iso){
@@ -2870,15 +2919,19 @@ function pollHtml(poll){
 
 function eventCardHtml(ev){
   const dateStr = ev.event_date ? new Date(ev.event_date).toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' }) : 'Fecha por confirmar';
+  const creatorName = [ev.creator_nombre, ev.creator_apellido].filter(Boolean).join(' ');
   return `
-  <div style="border:1px solid #ece7dd;border-radius:8px;padding:16px;margin-bottom:14px;background:#faf8f4">
-    <p style="margin:0 0 4px;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#1d6f9c;font-weight:700">📅 Evento</p>
-    <p style="margin:0 0 6px;font-size:16px;font-weight:600;color:#24262b;font-family:'Newsreader',serif">${esc(ev.title)}</p>
-    <p style="margin:0 0 4px;font-size:13px;color:#767b82">${esc(dateStr)}${ev.location ? ' · ' + esc(ev.location) : ''}</p>
-    ${ev.description ? `<p style="margin:8px 0;font-size:13px;color:#3f4247">${esc(ev.description)}</p>` : ''}
-    <div style="display:flex;align-items:center;gap:12px;margin-top:10px">
-      <button onclick="rsvpToEvent('${ev.id}')" ${ev.rsvped_by_me ? 'disabled' : ''} style="background:${ev.rsvped_by_me ? '#f1ede5' : '#E17B2F'};color:${ev.rsvped_by_me ? '#9a958a' : '#fff'};border:none;padding:8px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:${ev.rsvped_by_me ? 'default' : 'pointer'}">${ev.rsvped_by_me ? 'Vas a participar' : 'Pedir participar'}</button>
-      <span style="font-size:12px;color:#9a958a">${ev.rsvp_count} participando</span>
+  <div style="border:1px solid #ece7dd;border-radius:8px;overflow:hidden;margin-bottom:14px;background:#faf8f4">
+    ${ev.photo_url ? `<img src="${esc(ev.photo_url)}" style="width:100%;max-height:260px;object-fit:cover;display:block" />` : ''}
+    <div style="padding:16px">
+      <p style="margin:0 0 4px;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#1d6f9c;font-weight:700">📅 Evento</p>
+      <p style="margin:0 0 6px;font-size:16px;font-weight:600;color:#24262b;font-family:'Newsreader',serif">${esc(ev.title)}</p>
+      <p style="margin:0 0 4px;font-size:13px;color:#767b82">${esc(dateStr)}${ev.location ? ' · ' + esc(ev.location) : ''}${creatorName ? ' · Organiza ' + esc(creatorName) : ''}</p>
+      ${ev.description ? `<p style="margin:8px 0;font-size:13px;color:#3f4247">${esc(ev.description)}</p>` : ''}
+      <div style="display:flex;align-items:center;gap:12px;margin-top:10px">
+        <button onclick="rsvpToEvent('${ev.id}')" ${ev.rsvped_by_me ? 'disabled' : ''} style="background:${ev.rsvped_by_me ? '#f1ede5' : '#E17B2F'};color:${ev.rsvped_by_me ? '#9a958a' : '#fff'};border:none;padding:8px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:${ev.rsvped_by_me ? 'default' : 'pointer'}">${ev.rsvped_by_me ? 'Vas a participar' : 'Pedir participar'}</button>
+        <span style="font-size:12px;color:#9a958a">${ev.rsvp_count} participando</span>
+      </div>
     </div>
   </div>`;
 }
