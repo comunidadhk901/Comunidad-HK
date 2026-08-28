@@ -414,6 +414,9 @@ async function headerAdminLogout(){
   comunidadHkActiveMembers = [];
   comunidadHkEventsLoaded = false;
   comunidadHkEvents = [];
+  comunidadHkExpandedEventId = null;
+  comunidadHkEditingEventId = null;
+  comunidadHkEventRsvpRequests = {};
   comunidadHkNotifications = [];
   comunidadHkUnreadCount = 0;
   comunidadHkGroupsLoaded = false;
@@ -2874,13 +2877,84 @@ async function voteInPoll(pollId, optionId){
   loadComunidadHkFeed();
 }
 
-async function rsvpToEvent(eventId){
-  if (!comunidadHkMemberId) return;
-  const { error } = await supabaseClient.from('event_rsvps').insert({ event_id: eventId, member_id: comunidadHkMemberId });
-  if (error){ showToast('No se pudo registrar tu participación: ' + error.message); return; }
-  showToast('Listo, quedaste registrado para participar');
+function refreshEventsColumn(){
+  const el = document.getElementById('comunidad-hk-main-column');
+  if (!el) return;
+  if (state.comunidadHKTab === 'eventos') el.innerHTML = renderComunidadHKEventos();
+  else if (state.comunidadHKTab === 'feed') el.innerHTML = renderSocialFeed();
+}
+
+function refreshEventsDom(){
   if (state.comunidadHKTab === 'eventos'){ comunidadHkEventsLoaded = false; loadComunidadHkEvents(); }
   else { comunidadHkFeedLoaded = false; loadComunidadHkFeed(); }
+}
+
+async function rsvpToEvent(eventId){
+  if (!comunidadHkMemberId) return;
+  const { error } = await supabaseClient.from('event_rsvps').insert({ event_id: eventId, member_id: comunidadHkMemberId, status: 'pending' });
+  if (error){ showToast('No se pudo enviar la solicitud: ' + error.message); return; }
+  showToast('Solicitud enviada. El organizador debe aceptarla.');
+  refreshEventsDom();
+}
+
+let comunidadHkExpandedEventId = null;
+let comunidadHkEditingEventId = null;
+let comunidadHkEventRsvpRequests = {};
+
+async function toggleEventManage(eventId){
+  if (comunidadHkExpandedEventId === eventId){
+    comunidadHkExpandedEventId = null;
+  } else {
+    comunidadHkExpandedEventId = eventId;
+    comunidadHkEditingEventId = null;
+    const { data } = await supabaseClient.rpc('get_event_rsvp_requests', { eid: eventId });
+    comunidadHkEventRsvpRequests[eventId] = data || [];
+  }
+  refreshEventsColumn();
+}
+
+async function respondEventRsvp(eventId, memberId, approve){
+  if (approve){
+    const { error } = await supabaseClient.from('event_rsvps').update({ status: 'approved' }).eq('event_id', eventId).eq('member_id', memberId);
+    if (error){ showToast('No se pudo aprobar: ' + error.message); return; }
+    showToast('Participación aprobada');
+    notifyMember(memberId, 'event_rsvp_accepted', 'Tu solicitud para participar en un evento fue aceptada');
+  } else {
+    const { error } = await supabaseClient.from('event_rsvps').delete().eq('event_id', eventId).eq('member_id', memberId);
+    if (error){ showToast('No se pudo rechazar: ' + error.message); return; }
+    showToast('Solicitud rechazada');
+  }
+  const { data } = await supabaseClient.rpc('get_event_rsvp_requests', { eid: eventId });
+  comunidadHkEventRsvpRequests[eventId] = data || [];
+  refreshEventsDom();
+}
+
+function toggleEditEvent(eventId){
+  comunidadHkEditingEventId = comunidadHkEditingEventId === eventId ? null : eventId;
+  refreshEventsColumn();
+}
+
+async function saveEventEdit(eventId){
+  const title = (document.getElementById('edit-event-title-' + eventId).value || '').trim();
+  const dateVal = document.getElementById('edit-event-date-' + eventId).value;
+  const location = (document.getElementById('edit-event-location-' + eventId).value || '').trim();
+  const desc = (document.getElementById('edit-event-desc-' + eventId).value || '').trim();
+  if (!title){ showToast('Ponle un título al evento'); return; }
+  const { error } = await supabaseClient.from('events').update({
+    title, description: desc || null, event_date: dateVal ? new Date(dateVal).toISOString() : null, location: location || null,
+  }).eq('id', eventId);
+  if (error){ showToast('No se pudo guardar: ' + error.message); return; }
+  showToast('Evento actualizado');
+  comunidadHkEditingEventId = null;
+  refreshEventsDom();
+}
+
+async function deleteEvent(eventId){
+  if (!confirm('¿Eliminar este evento? Esta acción no se puede deshacer.')) return;
+  const { error } = await supabaseClient.from('events').delete().eq('id', eventId);
+  if (error){ showToast('No se pudo eliminar: ' + error.message); return; }
+  showToast('Evento eliminado');
+  refreshEventsDom();
 }
 
 function formatRelativeTime(iso){
@@ -2920,6 +2994,29 @@ function pollHtml(poll){
 function eventCardHtml(ev){
   const dateStr = ev.event_date ? new Date(ev.event_date).toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' }) : 'Fecha por confirmar';
   const creatorName = [ev.creator_nombre, ev.creator_apellido].filter(Boolean).join(' ');
+  const editing = comunidadHkEditingEventId === ev.id;
+  const managing = comunidadHkExpandedEventId === ev.id;
+
+  let actionBtn;
+  if (ev.is_creator) actionBtn = '';
+  else if (ev.my_rsvp_status === 'approved') actionBtn = `<button disabled style="background:#f1ede5;color:#9a958a;border:none;padding:8px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:default">Vas a participar</button>`;
+  else if (ev.my_rsvp_status === 'pending') actionBtn = `<button disabled style="background:#f1ede5;color:#9a958a;border:none;padding:8px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:default">Solicitud enviada</button>`;
+  else actionBtn = `<button onclick="rsvpToEvent('${ev.id}')" style="background:#E17B2F;color:#fff;border:none;padding:8px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer">Pedir participar</button>`;
+
+  if (editing){
+    return `
+    <div style="border:1px solid #ece7dd;border-radius:8px;padding:16px;margin-bottom:14px;background:#faf8f4;display:flex;flex-direction:column;gap:8px">
+      <input id="edit-event-title-${ev.id}" type="text" value="${esc(ev.title)}" placeholder="Título del evento" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d8d2c6;border-radius:4px;font-size:14px" />
+      <input id="edit-event-date-${ev.id}" type="datetime-local" value="${ev.event_date ? new Date(ev.event_date).toISOString().slice(0,16) : ''}" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d8d2c6;border-radius:4px;font-size:14px" />
+      <input id="edit-event-location-${ev.id}" type="text" value="${esc(ev.location || '')}" placeholder="Lugar (o link si es online)" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d8d2c6;border-radius:4px;font-size:14px" />
+      <textarea id="edit-event-desc-${ev.id}" rows="2" placeholder="Descripción del evento" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d8d2c6;border-radius:4px;font-size:14px;resize:vertical;font-family:'Public Sans',sans-serif">${esc(ev.description || '')}</textarea>
+      <div style="display:flex;gap:10px">
+        <button onclick="saveEventEdit('${ev.id}')" style="background:#E17B2F;color:#fff;border:none;padding:9px 18px;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer">Guardar</button>
+        <button onclick="toggleEditEvent('${ev.id}')" style="background:transparent;color:#767b82;border:1px solid #d8d2c6;padding:9px 18px;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer">Cancelar</button>
+      </div>
+    </div>`;
+  }
+
   return `
   <div style="border:1px solid #ece7dd;border-radius:8px;overflow:hidden;margin-bottom:14px;background:#faf8f4">
     ${ev.photo_url ? `<img src="${esc(ev.photo_url)}" style="width:100%;max-height:260px;object-fit:cover;display:block" />` : ''}
@@ -2927,11 +3024,27 @@ function eventCardHtml(ev){
       <p style="margin:0 0 4px;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#1d6f9c;font-weight:700">📅 Evento</p>
       <p style="margin:0 0 6px;font-size:16px;font-weight:600;color:#24262b;font-family:'Newsreader',serif">${esc(ev.title)}</p>
       <p style="margin:0 0 4px;font-size:13px;color:#767b82">${esc(dateStr)}${ev.location ? ' · ' + esc(ev.location) : ''}${creatorName ? ' · Organiza ' + esc(creatorName) : ''}</p>
+      ${!ev.location && !ev.is_creator ? `<p style="margin:2px 0 0;font-size:12px;color:#9a958a;font-style:italic">El lugar/link se revela cuando el organizador acepte tu solicitud.</p>` : ''}
       ${ev.description ? `<p style="margin:8px 0;font-size:13px;color:#3f4247">${esc(ev.description)}</p>` : ''}
-      <div style="display:flex;align-items:center;gap:12px;margin-top:10px">
-        <button onclick="rsvpToEvent('${ev.id}')" ${ev.rsvped_by_me ? 'disabled' : ''} style="background:${ev.rsvped_by_me ? '#f1ede5' : '#E17B2F'};color:${ev.rsvped_by_me ? '#9a958a' : '#fff'};border:none;padding:8px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:${ev.rsvped_by_me ? 'default' : 'pointer'}">${ev.rsvped_by_me ? 'Vas a participar' : 'Pedir participar'}</button>
+      <div style="display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap">
+        ${actionBtn}
         <span style="font-size:12px;color:#9a958a">${ev.rsvp_count} participando</span>
+        ${ev.is_creator ? `
+          <a onclick="toggleEditEvent('${ev.id}')" style="font-size:12px;color:#767b82;cursor:pointer">Editar</a>
+          <a onclick="deleteEvent('${ev.id}')" style="font-size:12px;color:#c0392b;cursor:pointer">Eliminar</a>
+          <a onclick="toggleEventManage('${ev.id}')" style="font-size:12px;color:#1d6f9c;cursor:pointer">${managing ? 'Cerrar' : 'Solicitudes' + (ev.pending_count ? ' (' + ev.pending_count + ')' : '')}</a>
+        ` : ''}
       </div>
+      ${ev.is_creator && managing ? `
+        <div style="border-top:1px solid #f1ede5;margin-top:14px;padding-top:14px">
+          <p style="font-size:12px;font-weight:600;color:#24262b;margin:0 0 8px">Solicitudes de participación</p>
+          ${(comunidadHkEventRsvpRequests[ev.id] || []).length === 0 ? `<p style="font-size:12px;color:#9a958a;margin:0">No hay solicitudes pendientes.</p>` : (comunidadHkEventRsvpRequests[ev.id] || []).map(r => `
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+              <span style="flex:1;font-size:12px;color:#3f4247">${esc([r.nombre, r.apellido].filter(Boolean).join(' '))}${r.cargo || r.empresa ? ' · ' + esc([r.cargo, r.empresa].filter(Boolean).join(' · ')) : ''}</span>
+              <button onclick="respondEventRsvp('${ev.id}','${r.member_id}',true)" style="background:#E17B2F;color:#fff;border:none;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;cursor:pointer">Aprobar</button>
+              <button onclick="respondEventRsvp('${ev.id}','${r.member_id}',false)" style="background:#fff;color:#767b82;border:1px solid #d8d2c6;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;cursor:pointer">Rechazar</button>
+            </div>`).join('')}
+        </div>` : ''}
     </div>
   </div>`;
 }
