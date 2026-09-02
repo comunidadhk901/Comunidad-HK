@@ -4029,25 +4029,32 @@ async function deleteInscrito(id){
   renderContactQueues();
 }
 
-function contactQueueItemHtml(r){
+function contactQueueItemHtml(r, contacted){
   return `
     <div onclick="openCandidateDetail('${r.id}')" style="cursor:pointer;padding:10px 12px;border-radius:6px;background:#fff;border:1px solid #ece7dd;margin-bottom:8px;transition:all 0.2s ease" class="hk-card-hover">
-      <p style="font-size:13px;font-weight:600;color:#24262b;margin:0">${esc(r.nombre)} ${esc(r.apellido)}</p>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <p style="font-size:13px;font-weight:600;color:#24262b;margin:0">${esc(r.nombre)} ${esc(r.apellido)}</p>
+        ${contacted ? `<span style="font-size:9px;font-weight:700;color:#1d6f9c;background:#eaf3f8;border-radius:8px;padding:2px 7px;text-transform:uppercase;letter-spacing:0.03em;white-space:nowrap;flex-shrink:0">✓ Contactado</span>` : ''}
+      </div>
       <p style="font-size:11px;color:#9a958a;margin:2px 0 0">${new Date(r.created_at).toLocaleDateString('es-CL')}</p>
     </div>`;
 }
 
 function renderContactQueues(){
-  const coachingList = adminListData.inscripciones.filter(pendingCoaching);
-  const outplacementList = adminListData.inscripciones.filter(pendingOutplacement);
+  const coachingWanted = adminListData.inscripciones.filter(r => r.quiere_info_coaching);
+  const outplacementWanted = adminListData.inscripciones.filter(r => r.quiere_info_outplacement);
+  const coachingPending = coachingWanted.filter(pendingCoaching);
+  const outplacementPending = outplacementWanted.filter(pendingOutplacement);
+  const coachingSorted = [...coachingPending, ...coachingWanted.filter(r => !pendingCoaching(r))];
+  const outplacementSorted = [...outplacementPending, ...outplacementWanted.filter(r => !pendingOutplacement(r))];
   const coachingListEl = document.getElementById('coaching-queue-list');
   const outplacementListEl = document.getElementById('outplacement-queue-list');
-  if (coachingListEl) coachingListEl.innerHTML = coachingList.length ? coachingList.map(contactQueueItemHtml).join('') : `<p style="font-size:12px;color:#9a958a;margin:0">Nadie pendiente.</p>`;
-  if (outplacementListEl) outplacementListEl.innerHTML = outplacementList.length ? outplacementList.map(contactQueueItemHtml).join('') : `<p style="font-size:12px;color:#9a958a;margin:0">Nadie pendiente.</p>`;
+  if (coachingListEl) coachingListEl.innerHTML = coachingSorted.length ? coachingSorted.map(r => contactQueueItemHtml(r, !pendingCoaching(r))).join('') : `<p style="font-size:12px;color:#9a958a;margin:0">Nadie ha solicitado coaching.</p>`;
+  if (outplacementListEl) outplacementListEl.innerHTML = outplacementSorted.length ? outplacementSorted.map(r => contactQueueItemHtml(r, !pendingOutplacement(r))).join('') : `<p style="font-size:12px;color:#9a958a;margin:0">Nadie ha solicitado outplacement.</p>`;
   const coachingCountEl = document.getElementById('coaching-queue-count');
   const outplacementCountEl = document.getElementById('outplacement-queue-count');
-  if (coachingCountEl) coachingCountEl.textContent = coachingList.length;
-  if (outplacementCountEl) outplacementCountEl.textContent = outplacementList.length;
+  if (coachingCountEl) coachingCountEl.textContent = coachingPending.length;
+  if (outplacementCountEl) outplacementCountEl.textContent = outplacementPending.length;
 }
 
 function personCardHtml(r, cvUrls){
@@ -4250,8 +4257,12 @@ function renderAdminDashboard(email, inscripciones, admins, cvUrls){
   const sorted = sortForAdmin(inscripciones);
   const pendientes = sorted.filter(r => infoRequestLabels(r).length).length;
 
-  const coachingQueue = sorted.filter(pendingCoaching);
-  const outplacementQueue = sorted.filter(pendingOutplacement);
+  const coachingWanted = sorted.filter(r => r.quiere_info_coaching);
+  const outplacementWanted = sorted.filter(r => r.quiere_info_outplacement);
+  const coachingQueue = coachingWanted.filter(pendingCoaching);
+  const outplacementQueue = outplacementWanted.filter(pendingOutplacement);
+  const coachingListSorted = [...coachingQueue, ...coachingWanted.filter(r => !pendingCoaching(r))];
+  const outplacementListSorted = [...outplacementQueue, ...outplacementWanted.filter(r => !pendingOutplacement(r))];
 
   return `
   <div style="display:flex;gap:24px;max-width:1400px;margin:0 auto;padding:48px 24px 96px;align-items:flex-start;flex-wrap:wrap">
@@ -4260,7 +4271,7 @@ function renderAdminDashboard(email, inscripciones, admins, cvUrls){
       <div style="background:#eaf3f8;border:1px solid #cfe3ee;border-radius:8px;padding:18px;position:sticky;top:24px">
         <p style="font-size:12px;font-weight:700;color:#1d6f9c;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 4px">Pendientes · Coaching</p>
         <p style="font-size:28px;font-weight:700;color:#1d6f9c;margin:0 0 14px" id="coaching-queue-count">${coachingQueue.length}</p>
-        <div id="coaching-queue-list">${coachingQueue.length ? coachingQueue.map(contactQueueItemHtml).join('') : `<p style="font-size:12px;color:#9a958a;margin:0">Nadie pendiente.</p>`}</div>
+        <div id="coaching-queue-list">${coachingListSorted.length ? coachingListSorted.map(r => contactQueueItemHtml(r, !pendingCoaching(r))).join('') : `<p style="font-size:12px;color:#9a958a;margin:0">Nadie ha solicitado coaching.</p>`}</div>
       </div>
     </aside>
 
@@ -4309,7 +4320,7 @@ function renderAdminDashboard(email, inscripciones, admins, cvUrls){
       <div style="background:#fdf1e6;border:1px solid #f5d9b8;border-radius:8px;padding:18px;position:sticky;top:24px">
         <p style="font-size:12px;font-weight:700;color:#b5601f;text-transform:uppercase;letter-spacing:0.03em;margin:0 0 4px">Pendientes · Outplacement</p>
         <p style="font-size:28px;font-weight:700;color:#b5601f;margin:0 0 14px" id="outplacement-queue-count">${outplacementQueue.length}</p>
-        <div id="outplacement-queue-list">${outplacementQueue.length ? outplacementQueue.map(contactQueueItemHtml).join('') : `<p style="font-size:12px;color:#9a958a;margin:0">Nadie pendiente.</p>`}</div>
+        <div id="outplacement-queue-list">${outplacementListSorted.length ? outplacementListSorted.map(r => contactQueueItemHtml(r, !pendingOutplacement(r))).join('') : `<p style="font-size:12px;color:#9a958a;margin:0">Nadie ha solicitado outplacement.</p>`}</div>
       </div>
     </aside>
 
