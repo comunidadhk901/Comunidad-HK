@@ -1595,12 +1595,12 @@ async function saveMemberProfileV2(btn){
 // ---------------------------------------------------------------------
 
 function renderComunidadHKPage(){
-  if (!isAdminSession && !siteSettings.socialLayerEnabled){
-    return `<section style="max-width:480px;margin:0 auto;padding:96px 24px;text-align:center"><p style="color:#767b82;font-size:15px">Esta sección todavía no está disponible.</p></section>`;
-  }
   if (!isAdminSession && !comunidadHkVerifiedEmail){
     if (!comunidadHkSessionChecked) checkComunidadHkSession();
     return renderComunidadHKLogin();
+  }
+  if (!isAdminSession && !siteSettings.socialLayerEnabled){
+    return `<section style="max-width:480px;margin:0 auto;padding:96px 24px;text-align:center"><p style="color:#767b82;font-size:15px">Esta sección todavía no está disponible.</p></section>`;
   }
   if (isAdminSession && !comunidadHkAdminContextLoaded) loadAdminMemberContext();
   const tab = state.comunidadHKTab || 'feed';
@@ -4591,6 +4591,8 @@ supabaseClient.auth.onAuthStateChange(async (_event, _session) => {
 });
 
 document.addEventListener('click', closeComunidadHKDropdowns);
+
+if (location.hash === '#comunidad-hk') state.page = 'comunidad-hk';
 
 renderMain();
 loadSiteSettings();
