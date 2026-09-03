@@ -406,6 +406,8 @@ async function headerAdminLogout(){
   isAdminSession = false;
   comunidadHkVerifiedEmail = null;
   comunidadHkSessionChecked = false;
+  comunidadHkOtpStep = 'email';
+  comunidadHkOtpEmailInput = '';
   comunidadHkMemberId = null;
   comunidadHkFeedLoaded = false;
   comunidadHkConnectionsLoaded = false;
@@ -1717,18 +1719,32 @@ async function checkComunidadHkSession(){
   const { data: { session } } = await supabaseClient.auth.getSession();
   if (!session || !session.user || !session.user.email) return;
   const { data } = await supabaseClient.rpc('is_community_member', { check_email: session.user.email });
-  if (data){
-    comunidadHkVerifiedEmail = session.user.email;
-    await loadComunidadHkMemberId();
-    loadComunidadHkNotifications();
+  if (!data) return;
+  comunidadHkOtpEmailInput = session.user.email;
+  const { data: passwordSet } = await supabaseClient.rpc('get_my_password_status');
+  if (!passwordSet){
+    comunidadHkOtpStep = 'password';
     if (state.page === 'comunidad-hk') renderMain();
+    return;
   }
+  comunidadHkVerifiedEmail = session.user.email;
+  await loadComunidadHkMemberId();
+  loadComunidadHkNotifications();
+  if (state.page === 'comunidad-hk') renderMain();
 }
 
 function renderComunidadHKLogin(){
   return `
   <section style="max-width:420px;margin:0 auto;padding:96px 24px;text-align:center">
     <span style="display:inline-block;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#b5601f;font-weight:700;margin-bottom:16px">Comunidad HK</span>
+    ${comunidadHkOtpStep === 'password' ? `
+      <h1 style="font-family:'Newsreader',serif;font-size:26px;color:#24262b;margin:0 0 12px;font-weight:500">Crea tu contraseña</h1>
+      <p style="color:#767b82;font-size:14px;line-height:1.6;margin:0 0 28px">Ya verificamos tu correo. Para entrar a Comunidad HK necesitas crear una contraseña para tu cuenta — la usarás en tus próximos ingresos.</p>
+      <input class="hk-input" id="chk-new-password" type="password" placeholder="Nueva contraseña (mínimo 8 caracteres)" style="${inputStyle}margin-bottom:16px" />
+      <input class="hk-input" id="chk-new-password-confirm" type="password" placeholder="Confirma tu contraseña" style="${inputStyle}margin-bottom:16px" />
+      <button onclick="createComunidadHkPassword()" class="hk-btn-primary" style="width:100%;background:#E17B2F;color:#fff;border:none;padding:15px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Crear contraseña y entrar</button>
+      <p style="margin:14px 0 0"><a onclick="declineComunidadHkPassword()" style="font-size:13px;color:#767b82;cursor:pointer">Ahora no (no tendré acceso)</a></p>
+    ` : `
     <h1 style="font-family:'Newsreader',serif;font-size:26px;color:#24262b;margin:0 0 12px;font-weight:500">Ingresa con tu correo</h1>
     <p style="color:#767b82;font-size:14px;line-height:1.6;margin:0 0 28px">Te enviamos un código de un solo uso para verificar que eres tú — necesario para que mensajes y conexiones sean realmente privados.</p>
     ${comunidadHkOtpStep === 'email' ? `
@@ -1739,9 +1755,36 @@ function renderComunidadHKLogin(){
       <input class="hk-input" id="chk-otp-code" type="text" inputmode="numeric" maxlength="6" placeholder="123456" style="${inputStyle}margin-bottom:16px;text-align:center;letter-spacing:6px;font-size:20px" />
       <button onclick="verifyComunidadHkOtp()" class="hk-btn-primary" style="width:100%;background:#E17B2F;color:#fff;border:none;padding:15px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Verificar</button>
       <p style="margin:14px 0 0"><a onclick="comunidadHkOtpStep='email';document.getElementById('main').innerHTML=renderComunidadHKPage()" style="font-size:13px;color:#767b82;cursor:pointer">← Usar otro correo</a></p>
-    `}
+    `}`}
     <p id="chk-otp-msg" style="font-size:13px;margin:16px 0 0;display:none"></p>
   </section>`;
+}
+
+async function createComunidadHkPassword(){
+  const pw = document.getElementById('chk-new-password').value;
+  const pw2 = document.getElementById('chk-new-password-confirm').value;
+  const msg = document.getElementById('chk-otp-msg');
+  msg.style.display = 'block';
+  if (!pw || pw.length < 8){ msg.style.color = '#c0392b'; msg.textContent = 'La contraseña debe tener al menos 8 caracteres.'; return; }
+  if (pw !== pw2){ msg.style.color = '#c0392b'; msg.textContent = 'Las contraseñas no coinciden.'; return; }
+  msg.style.color = '#767b82'; msg.textContent = 'Creando contraseña...';
+  const { error } = await supabaseClient.auth.updateUser({ password: pw });
+  if (error){ msg.style.color = '#c0392b'; msg.textContent = 'No se pudo crear la contraseña: ' + error.message; return; }
+  await supabaseClient.rpc('mark_password_set');
+  comunidadHkVerifiedEmail = comunidadHkOtpEmailInput;
+  comunidadHkOtpStep = 'email';
+  await loadComunidadHkMemberId();
+  loadComunidadHkNotifications();
+  renderMain();
+}
+
+async function declineComunidadHkPassword(){
+  await supabaseClient.auth.signOut();
+  comunidadHkVerifiedEmail = null;
+  comunidadHkOtpStep = 'email';
+  comunidadHkOtpEmailInput = '';
+  showToast('Debes crear una contraseña para acceder a Comunidad HK.');
+  renderMain();
 }
 
 async function sendComunidadHkOtp(){
@@ -1773,6 +1816,12 @@ async function verifyComunidadHkOtp(){
   if (!memberCheck){
     msg.style.color = '#c0392b'; msg.textContent = 'Este correo no está registrado en la Comunidad HK.';
     await supabaseClient.auth.signOut();
+    return;
+  }
+  const { data: passwordSet } = await supabaseClient.rpc('get_my_password_status');
+  if (!passwordSet){
+    comunidadHkOtpStep = 'password';
+    renderMain();
     return;
   }
   comunidadHkVerifiedEmail = comunidadHkOtpEmailInput;
@@ -2117,23 +2166,31 @@ async function loadUnreadMessageCount(){
   if (badge){ badge.textContent = comunidadHkUnreadMessageCount; badge.style.display = comunidadHkUnreadMessageCount > 0 ? 'inline-block' : 'none'; }
 }
 
-let comunidadHkPollTimer = null;
+let comunidadHkMessagePollTimer = null;
+let comunidadHkNotifPollTimer = null;
 
 function startComunidadHkPolling(){
-  if (comunidadHkPollTimer) return;
-  comunidadHkPollTimer = setInterval(() => {
-    if (!comunidadHkMemberId) return;
-    loadComunidadHkNotifications();
-    loadUnreadMessageCount();
-    if (state.page === 'comunidad-hk' && state.comunidadHKTab === 'mensajes'){
-      if (comunidadHkActiveConversationId) loadMessagesForActiveConversation();
-      else { comunidadHkConversationsLoaded = false; loadComunidadHkConversations(); }
-    }
-  }, 12000);
+  if (!comunidadHkMessagePollTimer){
+    comunidadHkMessagePollTimer = setInterval(() => {
+      if (!comunidadHkMemberId) return;
+      loadUnreadMessageCount();
+      if (state.page === 'comunidad-hk' && state.comunidadHKTab === 'mensajes'){
+        if (comunidadHkActiveConversationId) loadMessagesForActiveConversation();
+        else { comunidadHkConversationsLoaded = false; loadComunidadHkConversations(); }
+      }
+    }, 5000);
+  }
+  if (!comunidadHkNotifPollTimer){
+    comunidadHkNotifPollTimer = setInterval(() => {
+      if (!comunidadHkMemberId) return;
+      loadComunidadHkNotifications();
+    }, 12000);
+  }
 }
 
 function stopComunidadHkPolling(){
-  if (comunidadHkPollTimer){ clearInterval(comunidadHkPollTimer); comunidadHkPollTimer = null; }
+  if (comunidadHkMessagePollTimer){ clearInterval(comunidadHkMessagePollTimer); comunidadHkMessagePollTimer = null; }
+  if (comunidadHkNotifPollTimer){ clearInterval(comunidadHkNotifPollTimer); comunidadHkNotifPollTimer = null; }
 }
 
 async function loadComunidadHkNotifications(){
@@ -2593,18 +2650,68 @@ async function sendMessage(){
   input.value = '';
   const { error } = await supabaseClient.from('messages').insert({ conversation_id: comunidadHkActiveConversationId, sender_id: comunidadHkMemberId, text });
   if (error){ showToast('No se pudo enviar: ' + error.message); return; }
-  if (comunidadHkActiveConversationOther) notifyMember(comunidadHkActiveConversationOther.id, 'message', comunidadHKDisplayName() + ' te envió un mensaje');
   await loadMessagesForActiveConversation();
+}
+
+let comunidadHkEditingMessageId = null;
+
+function startEditMessage(msgId){
+  comunidadHkEditingMessageId = msgId;
+  const pane = document.getElementById('conversation-messages-pane');
+  if (pane) pane.innerHTML = messagesListHtml();
+}
+
+async function saveMessageEdit(msgId){
+  const input = document.getElementById('edit-message-' + msgId);
+  const text = input ? input.value.trim() : '';
+  if (!text) return;
+  const { error } = await supabaseClient.from('messages').update({ text }).eq('id', msgId);
+  if (error){ showToast('No se pudo editar: ' + error.message); return; }
+  const m = comunidadHkMessages.find(x => x.id === msgId);
+  if (m) m.text = text;
+  comunidadHkEditingMessageId = null;
+  const pane = document.getElementById('conversation-messages-pane');
+  if (pane) pane.innerHTML = messagesListHtml();
+}
+
+async function deleteConversation(convId){
+  if (!confirm('¿Eliminar esta conversación? Se borra para ambas personas y no se puede deshacer.')) return;
+  const { error } = await supabaseClient.from('conversations').delete().eq('id', convId);
+  if (error){ showToast('No se pudo eliminar: ' + error.message); return; }
+  if (comunidadHkActiveConversationId === convId){
+    comunidadHkActiveConversationId = null;
+    comunidadHkActiveConversationOther = null;
+  }
+  showToast('Conversación eliminada');
+  comunidadHkConversationsLoaded = false;
+  loadComunidadHkConversations();
+  const el = document.getElementById('comunidad-hk-main-column');
+  if (el && state.comunidadHKTab === 'mensajes') el.innerHTML = renderComunidadHKMessages();
 }
 
 function messagesListHtml(){
   if (comunidadHkMessages.length === 0) return `<p style="text-align:center;color:#9a958a;font-size:13px;padding:24px 0">Todavía no hay mensajes. ¡Envía el primero!</p>`;
   return comunidadHkMessages.map(m => {
     const mine = m.sender_id === comunidadHkMemberId;
+    const editing = comunidadHkEditingMessageId === m.id;
+    if (editing){
+      return `<div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+        <div style="max-width:80%;width:280px">
+          <input id="edit-message-${m.id}" type="text" value="${esc(m.text)}" onkeydown="if(event.key==='Enter'){saveMessageEdit('${m.id}')}" style="width:100%;box-sizing:border-box;border:1px solid #d8d2c6;border-radius:14px;padding:8px 14px;font-size:14px" />
+          <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px">
+            <a onclick="saveMessageEdit('${m.id}')" style="font-size:11px;color:#E17B2F;font-weight:600;cursor:pointer">Guardar</a>
+            <a onclick="comunidadHkEditingMessageId=null;document.getElementById('conversation-messages-pane').innerHTML=messagesListHtml()" style="font-size:11px;color:#767b82;cursor:pointer">Cancelar</a>
+          </div>
+        </div>
+      </div>`;
+    }
     return `<div style="display:flex;justify-content:${mine ? 'flex-end' : 'flex-start'};margin-bottom:10px">
-      <div style="max-width:70%;background:${mine ? '#E17B2F' : '#faf8f4'};color:${mine ? '#fff' : '#24262b'};padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.5">
-        ${esc(m.text)}
-        <div style="font-size:10px;opacity:0.7;margin-top:4px;text-align:right">${formatRelativeTime(m.created_at)}</div>
+      <div style="max-width:70%">
+        <div style="background:${mine ? '#E17B2F' : '#faf8f4'};color:${mine ? '#fff' : '#24262b'};padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.5">
+          ${esc(m.text)}
+          <div style="font-size:10px;opacity:0.7;margin-top:4px;text-align:right">${formatRelativeTime(m.created_at)}</div>
+        </div>
+        ${mine ? `<div style="text-align:right;margin-top:2px"><a onclick="startEditMessage('${m.id}')" style="font-size:11px;color:#9a958a;cursor:pointer">Editar</a></div>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -2633,6 +2740,7 @@ function conversationListItemsHtml(list){
         <p style="margin:2px 0 0;font-size:12px;color:#9a958a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.last_text || 'Sin mensajes')}</p>
       </div>
       ${c.unread_count > 0 ? `<span style="background:#E17B2F;color:#fff;font-size:10px;font-weight:700;border-radius:8px;padding:2px 6px">${c.unread_count}</span>` : ''}
+      <span onclick="event.stopPropagation();deleteConversation('${c.conversation_id}')" title="Eliminar conversación" style="cursor:pointer;color:#c0c5c9;font-size:13px;flex-shrink:0">🗑</span>
     </div>`;
   }).join('');
 }
@@ -2655,6 +2763,10 @@ function renderComunidadHKMessages(){
 
   const chat = comunidadHkActiveConversationId ? `
     <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #ece7dd">
+        <p style="margin:0;font-size:13px;font-weight:600;color:#24262b">${esc(comunidadHkActiveConversationOther ? comunidadHkActiveConversationOther.nombre || '' : '')}</p>
+        <a onclick="deleteConversation('${comunidadHkActiveConversationId}')" style="font-size:12px;color:#c0392b;cursor:pointer">Eliminar conversación</a>
+      </div>
       <div id="conversation-messages-pane" style="flex:1;padding:20px;overflow-y:auto;max-height:520px">${messagesListHtml()}</div>
       <div style="display:flex;gap:10px;padding:16px;border-top:1px solid #ece7dd">
         <input id="message-input" type="text" placeholder="Escribe un mensaje..." onkeydown="if(event.key==='Enter'){sendMessage()}" style="flex:1;border:1px solid #d8d2c6;border-radius:20px;padding:10px 16px;font-size:14px" />
