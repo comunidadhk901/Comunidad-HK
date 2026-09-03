@@ -3542,6 +3542,30 @@ function clearCommunityAccess(){
   goTo(state.page);
 }
 
+// Correos que, al entrar por "Comunidad" (el enlace viejo), quedan
+// redirigidos al login nuevo de Comunidad HK (codigo + crear
+// contraseña) en vez del acceso solo-por-correo de siempre. Por ahora
+// es solo para pruebas controladas -- una vez que se active
+// social_layer_enabled para todos, aplica a cualquiera automaticamente.
+const COMMUNITY_HK_MIGRATED_TEST_EMAILS = ['mackennapablo@hotmail.com'];
+
+function shouldRouteToComunidadHK(email){
+  return siteSettings.socialLayerEnabled || COMMUNITY_HK_MIGRATED_TEST_EMAILS.includes((email || '').trim().toLowerCase());
+}
+
+async function startComunidadHkLoginFromCommunity(email){
+  const msg = document.getElementById('community-gate-msg');
+  msg.style.display = 'block'; msg.style.color = '#767b82'; msg.textContent = 'Enviando código de acceso...';
+  const { error } = await supabaseClient.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+  if (error){
+    msg.style.color = '#c0392b'; msg.textContent = 'No se pudo enviar el código: ' + error.message;
+    return;
+  }
+  comunidadHkOtpEmailInput = email;
+  comunidadHkOtpStep = 'code';
+  goTo('comunidad-hk');
+}
+
 async function verifyCommunityAccess(){
   const email = document.getElementById('community-gate-email').value.trim();
   const msg = document.getElementById('community-gate-msg');
@@ -3557,6 +3581,10 @@ async function verifyCommunityAccess(){
     return;
   }
   if (data){
+    if (state.page === 'community' && shouldRouteToComunidadHK(email)){
+      await startComunidadHkLoginFromCommunity(email);
+      return;
+    }
     localStorage.setItem(COMMUNITY_ACCESS_KEY, email.toLowerCase());
     goTo(state.page);
     return;
