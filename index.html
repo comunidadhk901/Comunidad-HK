@@ -1379,7 +1379,7 @@ async function removeMemberPhoto(){
   renderMain();
 }
 
-let comunidadHkStats = { connections: 0, groups: 0, posts: 0 };
+let comunidadHkStats = { connections: 0, groups: 0, posts: 0, recent_posts: [] };
 let comunidadHkStatsLoaded = false;
 
 async function loadComunidadHkStats(){
@@ -1457,9 +1457,13 @@ function renderMemberProfileV2(){
       ${detailField('Ciudad', esc(p.ciudad || '—'))}
       ${detailField('Motivo de ingreso', esc(p.motivacion || '—'))}
     </div>
-    <div style="border-top:1px solid #f1ede5;padding-top:20px">
+    <div style="border-top:1px solid #f1ede5;padding-top:20px;margin-bottom:20px">
       <p style="font-size:13px;font-weight:600;color:#24262b;margin:0 0 4px">Privacidad</p>
       <p style="font-size:14px;color:#3f4247;margin:0">Perfil visible para otros miembros: <strong>${p.perfil_visible === false ? 'No' : 'Sí'}</strong></p>
+    </div>
+    <div style="border-top:1px solid #f1ede5;padding-top:20px">
+      <p style="font-family:'Newsreader',serif;font-size:17px;color:#24262b;margin:0 0 12px;font-weight:500">Mis publicaciones</p>
+      ${simplePostListHtml(comunidadHkStats.recent_posts)}
     </div>`}`;
   }
 
@@ -1682,9 +1686,19 @@ async function loadAdminMemberContext(){
   comunidadHkAdminContextLoaded = true;
   const { data: { session } } = await supabaseClient.auth.getSession();
   if (!session || !session.user || !session.user.email) return;
-  const { data: id } = await supabaseClient.rpc('my_member_id');
+  let { data: id } = await supabaseClient.rpc('my_member_id');
+  if (!id){
+    const { data: ensuredId } = await supabaseClient.rpc('ensure_my_inscripcion');
+    id = ensuredId;
+  }
   comunidadHkMemberId = id || null;
-  if (!comunidadHkMemberId) return;
+  if (!comunidadHkMemberId){
+    showToast('No pudimos crear tu perfil de miembro. Avisa al administrador.');
+    memberProfile = memberProfile || { nombre: session.user.email, apellido: '', email: session.user.email };
+    memberProfileLoaded = true;
+    if (state.page === 'comunidad-hk') renderMain();
+    return;
+  }
   supabaseClient.rpc('touch_last_active');
   loadUnreadMessageCount();
   startComunidadHkPolling();
@@ -3061,10 +3075,13 @@ function eventCardHtml(ev){
   const editing = comunidadHkEditingEventId === ev.id;
   const managing = comunidadHkExpandedEventId === ev.id;
 
+  const isPast = !!(ev.event_date && new Date(ev.event_date).getTime() < Date.now());
+
   let actionBtn;
   if (ev.is_creator) actionBtn = '';
   else if (ev.my_rsvp_status === 'approved') actionBtn = `<button disabled style="background:#f1ede5;color:#9a958a;border:none;padding:8px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:default">Vas a participar</button>`;
   else if (ev.my_rsvp_status === 'pending') actionBtn = `<button disabled style="background:#f1ede5;color:#9a958a;border:none;padding:8px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:default">Solicitud enviada</button>`;
+  else if (isPast) actionBtn = `<span style="font-size:12px;color:#9a958a;font-weight:600">Evento finalizado</span>`;
   else actionBtn = `<button onclick="rsvpToEvent('${ev.id}')" style="background:#E17B2F;color:#fff;border:none;padding:8px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer">Pedir participar</button>`;
 
   if (editing){
@@ -3185,18 +3202,21 @@ function renderViewedMemberProfile(){
     ${p.linkedin ? `<p style="margin:0 0 18px"><a href="${esc(p.linkedin)}" target="_blank" rel="noopener" style="font-size:13px;color:#1d6f9c;font-weight:600">Ver LinkedIn ↗</a></p>` : ''}
   </div>
   <p style="font-family:'Newsreader',serif;font-size:17px;color:#24262b;margin:24px 0 12px;font-weight:500">Publicaciones</p>
-  ${(p.posts || []).length === 0
-    ? `<p style="color:#9a958a;font-size:14px">Todavía no ha publicado nada.</p>`
-    : (p.posts || []).map(post => {
-        const mediaUrl = post.media_storage_path ? (SUPABASE_URL + '/storage/v1/object/public/post-media/' + post.media_storage_path) : null;
-        return `
-        <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:18px;margin-bottom:14px">
-          ${post.text ? `<p style="font-size:14px;color:#3f4247;line-height:1.6;margin:0 0 10px;white-space:pre-line">${esc(post.text)}</p>` : ''}
-          ${mediaUrl && post.media_type === 'photo' ? `<img src="${mediaUrl}" style="width:100%;max-height:320px;object-fit:cover;border-radius:6px;margin-bottom:8px" />` : ''}
-          ${mediaUrl && post.media_type === 'video' ? `<video src="${mediaUrl}" controls style="width:100%;max-height:320px;border-radius:6px;margin-bottom:8px"></video>` : ''}
-          <p style="margin:0;font-size:11px;color:#9a958a">${formatRelativeTime(post.created_at)}</p>
-        </div>`;
-      }).join('')}`;
+  ${simplePostListHtml(p.posts)}`;
+}
+
+function simplePostListHtml(posts){
+  if (!posts || posts.length === 0) return `<p style="color:#9a958a;font-size:14px">Todavía no ha publicado nada.</p>`;
+  return posts.map(post => {
+    const mediaUrl = post.media_storage_path ? (SUPABASE_URL + '/storage/v1/object/public/post-media/' + post.media_storage_path) : null;
+    return `
+    <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:18px;margin-bottom:14px">
+      ${post.text ? `<p style="font-size:14px;color:#3f4247;line-height:1.6;margin:0 0 10px;white-space:pre-line">${esc(post.text)}</p>` : ''}
+      ${mediaUrl && post.media_type === 'photo' ? `<img src="${mediaUrl}" style="width:100%;max-height:320px;object-fit:cover;border-radius:6px;margin-bottom:8px" />` : ''}
+      ${mediaUrl && post.media_type === 'video' ? `<video src="${mediaUrl}" controls style="width:100%;max-height:320px;border-radius:6px;margin-bottom:8px"></video>` : ''}
+      <p style="margin:0;font-size:11px;color:#9a958a">${formatRelativeTime(post.created_at)}</p>
+    </div>`;
+  }).join('');
 }
 
 function toggleFeedInterestChip(tag){
