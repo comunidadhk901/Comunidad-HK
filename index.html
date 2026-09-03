@@ -1751,9 +1751,9 @@ function renderComunidadHKLogin(){
       <input class="hk-input" id="chk-otp-email" type="email" placeholder="tu@email.com" style="${inputStyle}margin-bottom:16px" />
       <button onclick="sendComunidadHkOtp()" class="hk-btn-primary" style="width:100%;background:#E17B2F;color:#fff;border:none;padding:15px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Enviar código</button>
     ` : `
-      <p style="font-size:13px;color:#767b82;margin:0 0 16px">Enviamos un código a <strong>${esc(comunidadHkOtpEmailInput)}</strong></p>
+      <p style="font-size:13px;color:#767b82;margin:0 0 16px">Te enviamos un correo a <strong>${esc(comunidadHkOtpEmailInput)}</strong>. Haz clic en el link "Sign in" que te llegó — te traerá de vuelta aquí ya conectado. Si en tu correo aparece un código en vez de un link, ingrésalo abajo.</p>
       <input class="hk-input" id="chk-otp-code" type="text" inputmode="numeric" maxlength="6" placeholder="123456" style="${inputStyle}margin-bottom:16px;text-align:center;letter-spacing:6px;font-size:20px" />
-      <button onclick="verifyComunidadHkOtp()" class="hk-btn-primary" style="width:100%;background:#E17B2F;color:#fff;border:none;padding:15px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Verificar</button>
+      <button onclick="verifyComunidadHkOtp()" class="hk-btn-primary" style="width:100%;background:#E17B2F;color:#fff;border:none;padding:15px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Verificar código</button>
       <p style="margin:14px 0 0"><a onclick="comunidadHkOtpStep='email';document.getElementById('main').innerHTML=renderComunidadHKPage()" style="font-size:13px;color:#767b82;cursor:pointer">← Usar otro correo</a></p>
     `}`}
     <p id="chk-otp-msg" style="font-size:13px;margin:16px 0 0;display:none"></p>
@@ -1812,23 +1812,38 @@ async function verifyComunidadHkOtp(){
     msg.style.color = '#c0392b'; msg.textContent = 'Código incorrecto o vencido: ' + error.message;
     return;
   }
-  const { data: memberCheck } = await supabaseClient.rpc('is_community_member', { check_email: comunidadHkOtpEmailInput });
+  await continueComunidadHkLoginAfterAuth();
+}
+
+// Se usa tanto despues de verificar el codigo escrito a mano como
+// despues de que alguien entra haciendo clic en el link "Sign in" del
+// correo (Supabase ya deja la sesion abierta solo con eso -- no
+// siempre se puede mostrar un codigo de 6 digitos si no hay SMTP
+// personalizado configurado en el proyecto).
+async function continueComunidadHkLoginAfterAuth(){
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session || !session.user || !session.user.email) return false;
+  const email = session.user.email;
+  const { data: memberCheck } = await supabaseClient.rpc('is_community_member', { check_email: email });
   if (!memberCheck){
-    msg.style.color = '#c0392b'; msg.textContent = 'Este correo no está registrado en la Comunidad HK.';
+    const msg = document.getElementById('chk-otp-msg');
+    if (msg){ msg.style.display = 'block'; msg.style.color = '#c0392b'; msg.textContent = 'Este correo no está registrado en la Comunidad HK.'; }
     await supabaseClient.auth.signOut();
-    return;
+    return false;
   }
+  comunidadHkOtpEmailInput = email;
   const { data: passwordSet } = await supabaseClient.rpc('get_my_password_status');
   if (!passwordSet){
     comunidadHkOtpStep = 'password';
     renderMain();
-    return;
+    return true;
   }
-  comunidadHkVerifiedEmail = comunidadHkOtpEmailInput;
+  comunidadHkVerifiedEmail = email;
   comunidadHkOtpStep = 'email';
   await loadComunidadHkMemberId();
   loadComunidadHkNotifications();
   renderMain();
+  return true;
 }
 
 let comunidadHkMembersLoaded = false;
@@ -4616,6 +4631,10 @@ supabaseClient.auth.onAuthStateChange(async (_event, _session) => {
   if (state.page === 'admin') renderAdminAsync();
   await refreshAdminHeroControl();
   if (state.page === 'detail' || state.page === 'community') renderMain();
+  if (_event === 'SIGNED_IN' && !isAdminSession && !comunidadHkVerifiedEmail && comunidadHkOtpStep !== 'password'){
+    const handled = await continueComunidadHkLoginAfterAuth();
+    if (handled && state.page !== 'comunidad-hk') goTo('comunidad-hk');
+  }
 });
 
 document.addEventListener('click', closeComunidadHKDropdowns);
