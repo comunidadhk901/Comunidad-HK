@@ -4880,10 +4880,19 @@ supabaseClient.auth.onAuthStateChange(async (_event, _session) => {
 
 document.addEventListener('click', closeComunidadHKDropdowns);
 
-if (location.hash === '#comunidad-hk') state.page = 'comunidad-hk';
+let __hkLinkExpired = false;
+if (location.hash.includes('error=access_denied') || location.hash.includes('otp_expired')){
+  __hkLinkExpired = true;
+  history.replaceState(null, '', location.pathname + location.search);
+  state.page = 'comunidad-hk';
+  comunidadHkOtpStep = 'email';
+} else if (location.hash === '#comunidad-hk'){
+  state.page = 'comunidad-hk';
+}
 
 renderMain();
 loadSiteSettings();
+if (__hkLinkExpired) showToast('Ese link ya venció o ya se usó. Pide uno nuevo con tu correo.');
 refreshAdminHeroControl();
 loadResourceContentOverrides();
 </script>
