@@ -4872,7 +4872,7 @@ supabaseClient.auth.onAuthStateChange(async (_event, _session) => {
     if (state.page !== 'comunidad-hk') goTo('comunidad-hk'); else renderMain();
     return;
   }
-  if (_event === 'SIGNED_IN' && !isAdminSession && !comunidadHkVerifiedEmail && comunidadHkOtpStep !== 'password' && comunidadHkOtpStep !== 'password-reset'){
+  if (_event === 'SIGNED_IN' && state.page !== 'admin' && !comunidadHkVerifiedEmail && comunidadHkOtpStep !== 'password' && comunidadHkOtpStep !== 'password-reset'){
     const handled = await continueComunidadHkLoginAfterAuth();
     if (handled && state.page !== 'comunidad-hk') goTo('comunidad-hk');
   }
