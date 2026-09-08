@@ -3122,13 +3122,73 @@ async function deletePost(postId){
   fs.refreshDom();
 }
 
-async function sharePost(postId){
+let comunidadHkSharingPostId = null;
+
+async function openShareModal(postId){
   if (!comunidadHkMemberId){ showToast('No pudimos identificar tu perfil de miembro'); return; }
+  comunidadHkSharingPostId = postId;
+  if (!comunidadHkConnectionsLoaded) await loadComunidadHkConnections();
+  renderShareModalDom();
+}
+
+function closeShareModal(){
+  comunidadHkSharingPostId = null;
+  const el = document.getElementById('hk-share-modal');
+  if (el) el.remove();
+}
+
+function renderShareModalDom(){
+  const existing = document.getElementById('hk-share-modal');
+  if (existing) existing.remove();
+  const accepted = comunidadHkConnectionsData.accepted || [];
+  const html = `
+  <div id="hk-share-modal" onclick="if(event.target===this) closeShareModal()" style="position:fixed;inset:0;background:rgba(36,38,43,0.55);z-index:200;display:flex;align-items:center;justify-content:center;padding:24px">
+    <div style="background:#fff;border-radius:8px;max-width:420px;width:100%;padding:28px;box-sizing:border-box">
+      <h2 style="font-family:'Newsreader',serif;font-size:20px;color:#24262b;margin:0 0 6px;font-weight:500">Compartir publicación</h2>
+      <p style="font-size:13px;color:#767b82;margin:0 0 20px">Elige cómo quieres compartirla.</p>
+      <button onclick="confirmShareToProfile()" style="width:100%;background:#E17B2F;color:#fff;border:none;padding:12px;border-radius:4px;font-weight:600;font-size:14px;cursor:pointer;margin-bottom:18px">Compartir en mi perfil</button>
+      <div style="border-top:1px solid #f1ede5;padding-top:16px">
+        <p style="font-size:13px;font-weight:600;color:#24262b;margin:0 0 8px">O envíasela a una conexión</p>
+        ${accepted.length === 0 ? `<p style="font-size:12px;color:#9a958a;margin:0">Todavía no tienes conexiones.</p>` : `
+        <div style="display:flex;gap:8px">
+          <select id="hk-share-connection-select" style="flex:1;padding:8px 10px;border:1px solid #d8d2c6;border-radius:4px;font-size:13px">
+            ${accepted.map(c => `<option value="${c.member_id}">${esc([c.nombre, c.apellido].filter(Boolean).join(' '))}</option>`).join('')}
+          </select>
+          <button onclick="confirmShareToConnection()" style="background:#fff;color:#1d6f9c;border:1px solid #cfe3ee;padding:8px 16px;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer">Enviar</button>
+        </div>`}
+      </div>
+      <button onclick="closeShareModal()" style="width:100%;background:transparent;color:#767b82;border:none;padding:10px 0 0;font-size:13px;cursor:pointer;margin-top:16px">Cancelar</button>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+async function confirmShareToProfile(){
+  const postId = comunidadHkSharingPostId;
+  if (!postId) return;
+  closeShareModal();
   const { error } = await supabaseClient.from('posts').insert({ author_id: comunidadHkMemberId, shared_post_id: postId });
   if (error){ showToast('No se pudo compartir: ' + error.message); return; }
   showToast('Publicación compartida en tu perfil');
   comunidadHkFeedLoaded = false;
   if (state.comunidadHKTab === 'feed') loadComunidadHkFeed();
+}
+
+async function confirmShareToConnection(){
+  const postId = comunidadHkSharingPostId;
+  const select = document.getElementById('hk-share-connection-select');
+  const memberId = select ? select.value : null;
+  if (!memberId){ showToast('Selecciona una conexión'); return; }
+  const post = activeFeedState().posts.find(p => p.id === postId);
+  const preview = post && post.text ? (post.text.length > 200 ? post.text.slice(0, 200) + '…' : post.text) : '(publicación sin texto)';
+  const authorName = post ? [post.author_nombre, post.author_apellido].filter(Boolean).join(' ') : '';
+  const text = 'Te comparto una publicación' + (authorName ? ' de ' + authorName : '') + ':\n\n"' + preview + '"';
+  closeShareModal();
+  const { data: convId, error } = await supabaseClient.rpc('get_or_create_conversation', { other_id: memberId });
+  if (error || !convId){ showToast('No se pudo compartir: ' + (error ? error.message : '')); return; }
+  const { error: msgErr } = await supabaseClient.from('messages').insert({ conversation_id: convId, sender_id: comunidadHkMemberId, text });
+  if (msgErr){ showToast('No se pudo enviar: ' + msgErr.message); return; }
+  showToast('Publicación enviada por mensaje');
 }
 
 async function addRealComment(postId){
@@ -3497,7 +3557,7 @@ function socialPostCardHtml(post){
     <div style="display:flex;gap:24px;font-size:13px;font-weight:600;padding-bottom:14px;border-bottom:1px solid #f1ede5;margin-bottom:14px">
       <span onclick="toggleRealLike('${post.id}')" style="cursor:pointer;color:${post.liked_by_me ? '#E17B2F' : '#767b82'}">${post.liked_by_me ? '👍 Te gusta' : '👍 Me gusta'}</span>
       <span onclick="document.getElementById('comment-input-${post.id}').focus()" style="cursor:pointer;color:#767b82">💬 Comentar</span>
-      <span onclick="sharePost('${post.id}')" style="cursor:pointer;color:#767b82">↗ Compartir</span>
+      <span onclick="openShareModal('${post.id}')" style="cursor:pointer;color:#767b82">↗ Compartir</span>
     </div>
     ${(post.recent_comments || []).map(c => {
       const isMine = c.author_id === comunidadHkMemberId;
