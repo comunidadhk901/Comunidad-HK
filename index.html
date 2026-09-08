@@ -1410,7 +1410,8 @@ async function loadComunidadHkStats(){
   const { data, error } = await supabaseClient.rpc('get_my_social_stats');
   if (!error && data){
     comunidadHkStats = data;
-    const el = document.getElementById('member-profile-content');
+    const elId = state.page === 'comunidad-hk' ? 'comunidad-hk-main-column' : 'member-profile-content';
+    const el = document.getElementById(elId);
     if (el) el.innerHTML = renderMemberProfileContent();
   }
 }
@@ -1662,7 +1663,10 @@ function renderComunidadHKPage(){
       <a class="${linkClass('coaching')}" onclick="setComunidadHKTab('coaching')">Coaching Ejecutivo</a>
       <p style="padding:20px 24px 8px;margin:0;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9a958a;font-weight:700">Explorar</p>
       <a class="${linkClass('miembros')}" onclick="setComunidadHKTab('miembros')">Miembros</a>
-      <a class="${linkClass('grupos')}" onclick="setComunidadHKTab('grupos')">Grupos</a>
+      <a class="${linkClass('grupos')}" onclick="setComunidadHKTab('grupos')" style="display:flex;align-items:center;justify-content:space-between">Grupos${(() => {
+        const pending = comunidadHkGroups.filter(g => g.my_role === 'admin').reduce((sum, g) => sum + (g.pending_count || 0), 0);
+        return pending > 0 ? `<span style="background:#E17B2F;color:#fff;font-size:10px;font-weight:700;border-radius:8px;padding:1px 6px;margin-right:24px">${pending}</span>` : '';
+      })()}</a>
       <a class="${linkClass('eventos')}" onclick="setComunidadHKTab('eventos')">Eventos</a>
       <div style="padding:20px 24px 8px">
         <p style="margin:0 0 12px;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9a958a;font-weight:700">Mis grupos</p>
@@ -2425,6 +2429,8 @@ async function requestJoinGroup(groupId){
   const { error } = await supabaseClient.from('group_members').insert({ group_id: groupId, member_id: comunidadHkMemberId, status: 'pending' });
   if (error){ showToast('No se pudo enviar la solicitud: ' + error.message); return; }
   showToast('Solicitud enviada');
+  const group = comunidadHkGroups.find(g => g.id === groupId);
+  if (group) notifyMember(group.created_by_id, 'group_join_request', comunidadHKDisplayName() + ' pidió unirse a tu grupo "' + group.name + '"');
   comunidadHkGroupsLoaded = false;
   loadComunidadHkGroups();
 }
@@ -2674,29 +2680,42 @@ function renderGroupDetail(){
     <div style="min-width:0">
       <p style="margin:0;font-size:18px;font-weight:600;color:#24262b;font-family:'Newsreader',serif">${esc(g.name)}</p>
       <p style="margin:2px 0 0;font-size:12px;color:#9a958a">${g.member_count} miembro${g.member_count === 1 ? '' : 's'}${creatorName ? ' · Creado por ' + esc(creatorName) : ''}</p>
-      ${g.description ? `<p style="margin:8px 0 0;font-size:13px;color:#3f4247;line-height:1.5">${esc(g.description)}</p>` : ''}
     </div>
   </div>
-  <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:20px;margin-bottom:20px">
-    <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
-      ${socialAvatarHtml(comunidadHKDisplayName(), 40)}
-      <textarea id="group-composer-input" rows="2" placeholder="Escribe algo para el grupo..." onkeydown="if(event.key==='Enter' && (event.ctrlKey || event.metaKey)){event.preventDefault();publishGroupPost('${g.id}')}" style="flex:1;border:1px solid #ece7dd;background:#faf8f4;border-radius:16px;padding:11px 16px;color:#24262b;font-size:14px;font-family:'Public Sans',sans-serif;resize:vertical;line-height:1.5"></textarea>
-    </div>
-    <p style="margin:0 0 12px;font-size:11px;color:#9a958a">Enter para salto de línea · Ctrl+Enter para publicar</p>
-    ${renderGroupComposerAttachmentArea()}
-    <input type="file" id="group-composer-file-photo" accept="image/*" style="display:none" onchange="handleGroupComposerFileChange(event,'photo')" />
-    <input type="file" id="group-composer-file-video" accept="video/*" style="display:none" onchange="handleGroupComposerFileChange(event,'video')" />
-    <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid #f1ede5;padding-top:12px">
-      <div style="display:flex;gap:16px">
-        <span onclick="document.getElementById('group-composer-file-photo').click()" style="font-size:13px;color:#767b82;cursor:pointer">📷 Foto</span>
-        <span onclick="document.getElementById('group-composer-file-video').click()" style="font-size:13px;color:#767b82;cursor:pointer">🎥 Video</span>
+  <div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap">
+    <div style="flex:2 1 420px;min-width:0">
+      <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:20px;margin-bottom:20px">
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
+          ${socialAvatarHtml(comunidadHKDisplayName(), 40)}
+          <textarea id="group-composer-input" rows="2" placeholder="Escribe algo para el grupo..." onkeydown="if(event.key==='Enter' && (event.ctrlKey || event.metaKey)){event.preventDefault();publishGroupPost('${g.id}')}" style="flex:1;border:1px solid #ece7dd;background:#faf8f4;border-radius:16px;padding:11px 16px;color:#24262b;font-size:14px;font-family:'Public Sans',sans-serif;resize:vertical;line-height:1.5"></textarea>
+        </div>
+        <p style="margin:0 0 12px;font-size:11px;color:#9a958a">Enter para salto de línea · Ctrl+Enter para publicar</p>
+        ${renderGroupComposerAttachmentArea()}
+        <input type="file" id="group-composer-file-photo" accept="image/*" style="display:none" onchange="handleGroupComposerFileChange(event,'photo')" />
+        <input type="file" id="group-composer-file-video" accept="video/*" style="display:none" onchange="handleGroupComposerFileChange(event,'video')" />
+        <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid #f1ede5;padding-top:12px">
+          <div style="display:flex;gap:16px">
+            <span onclick="document.getElementById('group-composer-file-photo').click()" style="font-size:13px;color:#767b82;cursor:pointer">📷 Foto</span>
+            <span onclick="document.getElementById('group-composer-file-video').click()" style="font-size:13px;color:#767b82;cursor:pointer">🎥 Video</span>
+          </div>
+          <button id="group-composer-publish-btn" onclick="publishGroupPost('${g.id}')" style="background:#E17B2F;color:#fff;border:none;padding:8px 20px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer">Publicar</button>
+        </div>
       </div>
-      <button id="group-composer-publish-btn" onclick="publishGroupPost('${g.id}')" style="background:#E17B2F;color:#fff;border:none;padding:8px 20px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer">Publicar</button>
+      ${!comunidadHkGroupFeedLoaded ? `<p style="text-align:center;color:#9a958a;font-size:13px;padding:24px 0">Cargando publicaciones…</p>` : ''}
+      ${comunidadHkGroupFeedLoaded && comunidadHkGroupFeedPosts.length === 0 ? `<p style="text-align:center;color:#9a958a;font-size:13px;padding:24px 0">Todavía no hay publicaciones en este grupo.</p>` : ''}
+      ${comunidadHkGroupFeedPosts.map(post => socialPostCardHtml(post)).join('')}
     </div>
-  </div>
-  ${!comunidadHkGroupFeedLoaded ? `<p style="text-align:center;color:#9a958a;font-size:13px;padding:24px 0">Cargando publicaciones…</p>` : ''}
-  ${comunidadHkGroupFeedLoaded && comunidadHkGroupFeedPosts.length === 0 ? `<p style="text-align:center;color:#9a958a;font-size:13px;padding:24px 0">Todavía no hay publicaciones en este grupo.</p>` : ''}
-  ${comunidadHkGroupFeedPosts.map(post => socialPostCardHtml(post)).join('')}`;
+    <div style="flex:1 1 240px;max-width:280px">
+      <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:20px;margin-bottom:20px">
+        <p style="font-family:'Newsreader',serif;font-size:16px;color:#24262b;margin:0 0 10px;font-weight:500">Acerca de este grupo</p>
+        <p style="font-size:13px;color:${g.description ? '#3f4247' : '#9a958a'};line-height:1.6;margin:0">${g.description ? esc(g.description) : 'Sin descripción.'}</p>
+      </div>
+      <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:20px">
+        <p style="font-family:'Newsreader',serif;font-size:16px;color:#24262b;margin:0 0 4px;font-weight:500">${g.member_count} miembro${g.member_count === 1 ? '' : 's'}</p>
+        ${creatorName ? `<p style="font-size:12px;color:#9a958a;margin:0">Creado por ${esc(creatorName)}</p>` : ''}
+      </div>
+    </div>
+  </div>`;
 }
 
 let comunidadHkConversationsLoaded = false;
@@ -3120,6 +3139,40 @@ async function deletePost(postId){
   fs.setPosts(fs.posts.filter(p => p.id !== postId));
   showToast('Publicación eliminada');
   fs.refreshDom();
+}
+
+let comunidadHkLikers = [];
+
+async function openLikersModal(postId){
+  const { data, error } = await supabaseClient.rpc('get_post_likers', { pid: postId });
+  comunidadHkLikers = (!error && data) ? data : [];
+  renderLikersModalDom();
+}
+
+function closeLikersModal(){
+  const el = document.getElementById('hk-likers-modal');
+  if (el) el.remove();
+}
+
+function renderLikersModalDom(){
+  const existing = document.getElementById('hk-likers-modal');
+  if (existing) existing.remove();
+  const html = `
+  <div id="hk-likers-modal" onclick="if(event.target===this) closeLikersModal()" style="position:fixed;inset:0;background:rgba(36,38,43,0.55);z-index:200;display:flex;align-items:center;justify-content:center;padding:24px">
+    <div style="background:#fff;border-radius:8px;max-width:360px;width:100%;padding:24px;box-sizing:border-box;max-height:70vh;overflow-y:auto">
+      <h2 style="font-family:'Newsreader',serif;font-size:18px;color:#24262b;margin:0 0 16px;font-weight:500">Les gusta esto</h2>
+      ${comunidadHkLikers.length === 0 ? `<p style="font-size:13px;color:#9a958a;margin:0">Todavía nadie le ha dado like.</p>` : comunidadHkLikers.map(m => {
+        const name = [m.nombre, m.apellido].filter(Boolean).join(' ');
+        return `
+        <div onclick="closeLikersModal();viewMemberProfile('${m.member_id}')" style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer">
+          ${m.photo_url ? `<img src="${esc(m.photo_url)}" style="width:36px;height:36px;border-radius:50%;object-fit:cover" />` : socialAvatarHtml(name, 36)}
+          <p style="margin:0;font-size:13px;font-weight:600;color:#24262b">${esc(name)}</p>
+        </div>`;
+      }).join('')}
+      <button onclick="closeLikersModal()" style="width:100%;background:transparent;color:#767b82;border:none;padding:10px 0 0;font-size:13px;cursor:pointer;margin-top:12px">Cerrar</button>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
 }
 
 let comunidadHkSharingPostId = null;
@@ -3551,7 +3604,7 @@ function socialPostCardHtml(post){
       ${spMediaUrl && sp.media_type === 'video' ? `<video src="${spMediaUrl}" controls style="width:100%;max-height:280px;border-radius:6px"></video>` : ''}
     </div>` : ''}
     <div style="display:flex;justify-content:space-between;font-size:12px;color:#9a958a;padding-bottom:10px;border-bottom:1px solid #f1ede5;margin-bottom:10px">
-      <span>${post.like_count} Me gusta</span>
+      <span onclick="openLikersModal('${post.id}')" style="${post.like_count > 0 ? 'cursor:pointer' : ''}">${post.like_count} Me gusta</span>
       <span>${post.comment_count} comentario${post.comment_count === 1 ? '' : 's'}</span>
     </div>
     <div style="display:flex;gap:24px;font-size:13px;font-weight:600;padding-bottom:14px;border-bottom:1px solid #f1ede5;margin-bottom:14px">
@@ -4317,9 +4370,12 @@ async function signInAdmin(){
 function renderAdminNoAccess(email){
   return `
   <section style="max-width:480px;margin:0 auto;padding:96px 24px;text-align:center;box-sizing:border-box">
-    <h1 style="font-family:'Newsreader',serif;font-size:26px;color:#24262b;margin:0 0 12px;font-weight:500">Sin acceso</h1>
-    <p style="color:#767b82;font-size:15px;line-height:1.6;margin:0 0 28px">La cuenta ${esc(email)} no tiene permisos de administrador. Pide a un administrador que te agregue desde el panel.</p>
-    <button class="hk-btn-outline" onclick="adminLogout()" style="background:transparent;color:#24262b;border:1px solid #d8d2c6;padding:13px 24px;border-radius:4px;font-weight:600;font-size:14px;cursor:pointer">Cerrar sesión</button>
+    <h1 style="font-family:'Newsreader',serif;font-size:26px;color:#24262b;margin:0 0 12px;font-weight:500">Sin acceso de administrador</h1>
+    <p style="color:#767b82;font-size:15px;line-height:1.6;margin:0 0 28px">La cuenta ${esc(email)} no tiene permisos de administrador — este acceso es solo para el equipo de HK. Si ya iniciaste sesión como miembro de la comunidad, tu lugar es Comunidad HK.</p>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <button class="hk-btn-primary" onclick="goTo('comunidad-hk')" style="background:#E17B2F;color:#fff;border:none;padding:13px 24px;border-radius:4px;font-weight:600;font-size:14px;cursor:pointer">Ir a Comunidad HK</button>
+      <button class="hk-btn-outline" onclick="adminLogout()" style="background:transparent;color:#24262b;border:1px solid #d8d2c6;padding:13px 24px;border-radius:4px;font-weight:600;font-size:14px;cursor:pointer">Cerrar sesión</button>
+    </div>
   </section>`;
 }
 
