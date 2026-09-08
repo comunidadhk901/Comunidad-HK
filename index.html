@@ -2581,8 +2581,9 @@ function renderGroupDetail(){
   <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:20px;margin-bottom:20px">
     <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
       ${socialAvatarHtml(comunidadHKDisplayName(), 40)}
-      <input id="group-composer-input" type="text" placeholder="Escribe algo para el grupo..." onkeydown="if(event.key==='Enter'){publishGroupPost('${g.id}')}" style="flex:1;border:1px solid #ece7dd;background:#faf8f4;border-radius:20px;padding:11px 16px;color:#24262b;font-size:14px" />
+      <textarea id="group-composer-input" rows="2" placeholder="Escribe algo para el grupo..." onkeydown="if(event.key==='Enter' && (event.ctrlKey || event.metaKey)){event.preventDefault();publishGroupPost('${g.id}')}" style="flex:1;border:1px solid #ece7dd;background:#faf8f4;border-radius:16px;padding:11px 16px;color:#24262b;font-size:14px;font-family:'Public Sans',sans-serif;resize:vertical;line-height:1.5"></textarea>
     </div>
+    <p style="margin:0 0 12px;font-size:11px;color:#9a958a">Enter para salto de línea · Ctrl+Enter para publicar</p>
     ${renderGroupComposerAttachmentArea()}
     <input type="file" id="group-composer-file-photo" accept="image/*" style="display:none" onchange="handleGroupComposerFileChange(event,'photo')" />
     <input type="file" id="group-composer-file-video" accept="video/*" style="display:none" onchange="handleGroupComposerFileChange(event,'video')" />
@@ -3431,8 +3432,9 @@ function renderSocialFeed(){
   <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;padding:20px;margin-bottom:20px">
     <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px">
       ${socialAvatarHtml(displayName, 44)}
-      <input id="social-composer-input" type="text" placeholder="¿Qué estás pensando, ${esc(displayName)}?" onkeydown="if(event.key==='Enter'){publishRealPost()}" style="flex:1;border:1px solid #ece7dd;background:#faf8f4;border-radius:20px;padding:12px 18px;color:#24262b;font-size:14px" />
+      <textarea id="social-composer-input" rows="2" placeholder="¿Qué estás pensando, ${esc(displayName)}?" onkeydown="if(event.key==='Enter' && (event.ctrlKey || event.metaKey)){event.preventDefault();publishRealPost()}" style="flex:1;border:1px solid #ece7dd;background:#faf8f4;border-radius:16px;padding:12px 18px;color:#24262b;font-size:14px;font-family:'Public Sans',sans-serif;resize:vertical;line-height:1.5"></textarea>
     </div>
+    <p style="margin:0 0 14px;font-size:11px;color:#9a958a">Enter para salto de línea · Ctrl+Enter para publicar</p>
     ${renderComposerAttachmentArea()}
     <input type="file" id="composer-file-photo" accept="image/*" style="display:none" onchange="handleComposerFileChange(event,'photo')" />
     <input type="file" id="composer-file-video" accept="video/*" style="display:none" onchange="handleComposerFileChange(event,'video')" />
