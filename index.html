@@ -581,6 +581,7 @@ const state = {
     nombre:'', apellido:'', email:'', telefono:'', cargo:'', empresa:'', carrera:'',
     linkedin:'', ciudad:'', areaProfesional:'', anios:'', motivacion:'', sinTrabajo:false,
     infoCoaching:false, infoOutplacement:false, infoOtro:'', quiereNetworking:null,
+    password:'', passwordConfirm:'',
     cvFileName:null, cvFile:null, areasInteres:[],
   },
   formError: '',
@@ -897,7 +898,10 @@ function renderForm1(){
       ${formField('Ciudad o país','ciudad',{placeholder:'Ej: Santiago, Chile'})}
       ${formField('Área profesional','areaProfesional',{placeholder:'Ej: Finanzas, Operaciones'})}
       ${formField('Años de experiencia','anios',{placeholder:'Ej: 12'})}
+      ${formField('Contraseña *','password',{type:'password',placeholder:'Mínimo 8 caracteres'})}
+      ${formField('Confirma tu contraseña *','passwordConfirm',{type:'password',placeholder:'Repite tu contraseña'})}
     </div>
+    <p style="color:#9a958a;font-size:13px;margin:12px 0 0">La usarás para entrar a Comunidad HK.</p>
 
     <button class="hk-btn-primary" onclick="goToStep2()" style="width:100%;margin-top:36px;background:#E17B2F;color:#fff;border:none;padding:16px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Continuar</button>
   </section>`;
@@ -1025,11 +1029,27 @@ async function submitForm(){
     document.getElementById('networking-choice').scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;
   }
+  if (!state.form.password || state.form.password.length < 8 || state.form.password !== state.form.passwordConfirm){
+    showToast('Revisa tu contraseña: mínimo 8 caracteres y debe coincidir con la confirmación.');
+    goToStep1();
+    return;
+  }
 
   btn.disabled = true;
   btn.textContent = 'Enviando...';
 
   const f = state.form;
+
+  const { error: signUpError } = await supabaseClient.auth.signUp({ email: f.email, password: f.password });
+  if (signUpError){
+    btn.disabled = false;
+    btn.textContent = 'Unirme a la Comunidad HK';
+    state.formError = 'No pudimos crear tu cuenta: ' + signUpError.message;
+    errEl.textContent = state.formError;
+    errEl.style.display = 'block';
+    return;
+  }
+
   let cvStoragePath = null;
   if (f.cvFile){
     const safeName = f.cvFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
@@ -1055,7 +1075,7 @@ async function submitForm(){
     motivacion: f.motivacion || null,
     quiere_info_coaching: f.infoCoaching, quiere_info_outplacement: f.infoOutplacement,
     quiere_info_otro: f.infoOtro || null, quiere_networking: f.quiereNetworking,
-    acepta_privacidad: true, acepta_comunicaciones: false,
+    acepta_privacidad: true, acepta_comunicaciones: false, password_set: true,
   });
 
   btn.disabled = false;
@@ -1070,6 +1090,7 @@ async function submitForm(){
   if (f.email){
     localStorage.setItem(COMMUNITY_ACCESS_KEY, f.email.trim().toLowerCase());
   }
+  showToast('Cuenta creada. Si te pedimos confirmar tu correo, revisa tu bandeja de entrada (y spam).');
   goTo('confirmation');
 }
 
@@ -1734,28 +1755,49 @@ async function checkComunidadHkSession(){
 }
 
 function renderComunidadHKLogin(){
-  return `
-  <section style="max-width:420px;margin:0 auto;padding:96px 24px;text-align:center">
-    <span style="display:inline-block;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#b5601f;font-weight:700;margin-bottom:16px">Comunidad HK</span>
-    ${comunidadHkOtpStep === 'password' ? `
+  const backToEmail = `<p style="margin:14px 0 0"><a onclick="comunidadHkOtpStep='email';document.getElementById('main').innerHTML=renderComunidadHKPage()" style="font-size:13px;color:#767b82;cursor:pointer">← Usar otro correo</a></p>`;
+  let body;
+  if (comunidadHkOtpStep === 'password'){
+    body = `
       <h1 style="font-family:'Newsreader',serif;font-size:26px;color:#24262b;margin:0 0 12px;font-weight:500">Crea tu contraseña</h1>
       <p style="color:#767b82;font-size:14px;line-height:1.6;margin:0 0 28px">Ya verificamos tu correo. Para entrar a Comunidad HK necesitas crear una contraseña para tu cuenta — la usarás en tus próximos ingresos.</p>
       <input class="hk-input" id="chk-new-password" type="password" placeholder="Nueva contraseña (mínimo 8 caracteres)" style="${inputStyle}margin-bottom:16px" />
       <input class="hk-input" id="chk-new-password-confirm" type="password" placeholder="Confirma tu contraseña" style="${inputStyle}margin-bottom:16px" />
       <button onclick="createComunidadHkPassword()" class="hk-btn-primary" style="width:100%;background:#E17B2F;color:#fff;border:none;padding:15px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Crear contraseña y entrar</button>
-      <p style="margin:14px 0 0"><a onclick="declineComunidadHkPassword()" style="font-size:13px;color:#767b82;cursor:pointer">Ahora no (no tendré acceso)</a></p>
-    ` : `
+      <p style="margin:14px 0 0"><a onclick="declineComunidadHkPassword()" style="font-size:13px;color:#767b82;cursor:pointer">Ahora no (no tendré acceso)</a></p>`;
+  } else if (comunidadHkOtpStep === 'password-login'){
+    body = `
+      <h1 style="font-family:'Newsreader',serif;font-size:26px;color:#24262b;margin:0 0 12px;font-weight:500">Ingresa tu contraseña</h1>
+      <p style="color:#767b82;font-size:14px;line-height:1.6;margin:0 0 28px"><strong>${esc(comunidadHkOtpEmailInput)}</strong></p>
+      <input class="hk-input" id="chk-login-password" type="password" placeholder="Tu contraseña" onkeydown="if(event.key==='Enter'){signInComunidadHkPassword()}" style="${inputStyle}margin-bottom:16px" />
+      <button onclick="signInComunidadHkPassword()" class="hk-btn-primary" style="width:100%;background:#E17B2F;color:#fff;border:none;padding:15px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Ingresar</button>
+      <p style="margin:14px 0 0"><a onclick="requestComunidadHkPasswordReset()" style="font-size:13px;color:#767b82;cursor:pointer">¿Olvidaste tu contraseña?</a></p>
+      ${backToEmail}`;
+  } else if (comunidadHkOtpStep === 'password-reset'){
+    body = `
+      <h1 style="font-family:'Newsreader',serif;font-size:26px;color:#24262b;margin:0 0 12px;font-weight:500">Crea una nueva contraseña</h1>
+      <p style="color:#767b82;font-size:14px;line-height:1.6;margin:0 0 28px">Escribe tu nueva contraseña para Comunidad HK.</p>
+      <input class="hk-input" id="chk-reset-password" type="password" placeholder="Nueva contraseña (mínimo 8 caracteres)" style="${inputStyle}margin-bottom:16px" />
+      <input class="hk-input" id="chk-reset-password-confirm" type="password" placeholder="Confirma tu contraseña" style="${inputStyle}margin-bottom:16px" />
+      <button onclick="saveComunidadHkPasswordReset()" class="hk-btn-primary" style="width:100%;background:#E17B2F;color:#fff;border:none;padding:15px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Guardar y entrar</button>`;
+  } else {
+    body = `
     <h1 style="font-family:'Newsreader',serif;font-size:26px;color:#24262b;margin:0 0 12px;font-weight:500">Ingresa con tu correo</h1>
-    <p style="color:#767b82;font-size:14px;line-height:1.6;margin:0 0 28px">Te enviamos un código de un solo uso para verificar que eres tú — necesario para que mensajes y conexiones sean realmente privados.</p>
+    <p style="color:#767b82;font-size:14px;line-height:1.6;margin:0 0 28px">Si ya tienes contraseña te la pediremos directo. Si todavía no, te enviamos un código de un solo uso para verificar que eres tú.</p>
     ${comunidadHkOtpStep === 'email' ? `
-      <input class="hk-input" id="chk-otp-email" type="email" placeholder="tu@email.com" style="${inputStyle}margin-bottom:16px" />
-      <button onclick="sendComunidadHkOtp()" class="hk-btn-primary" style="width:100%;background:#E17B2F;color:#fff;border:none;padding:15px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Enviar código</button>
+      <input class="hk-input" id="chk-otp-email" type="email" placeholder="tu@email.com" onkeydown="if(event.key==='Enter'){sendComunidadHkOtp()}" style="${inputStyle}margin-bottom:16px" />
+      <button onclick="sendComunidadHkOtp()" class="hk-btn-primary" style="width:100%;background:#E17B2F;color:#fff;border:none;padding:15px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Continuar</button>
     ` : `
       <p style="font-size:13px;color:#767b82;margin:0 0 16px">Te enviamos un correo a <strong>${esc(comunidadHkOtpEmailInput)}</strong>. Haz clic en el link "Sign in" que te llegó — te traerá de vuelta aquí ya conectado. Si en tu correo aparece un código en vez de un link, ingrésalo abajo.</p>
       <input class="hk-input" id="chk-otp-code" type="text" inputmode="numeric" maxlength="6" placeholder="123456" style="${inputStyle}margin-bottom:16px;text-align:center;letter-spacing:6px;font-size:20px" />
       <button onclick="verifyComunidadHkOtp()" class="hk-btn-primary" style="width:100%;background:#E17B2F;color:#fff;border:none;padding:15px;border-radius:4px;font-weight:600;font-size:15px;cursor:pointer">Verificar código</button>
-      <p style="margin:14px 0 0"><a onclick="comunidadHkOtpStep='email';document.getElementById('main').innerHTML=renderComunidadHKPage()" style="font-size:13px;color:#767b82;cursor:pointer">← Usar otro correo</a></p>
-    `}`}
+      ${backToEmail}
+    `}`;
+  }
+  return `
+  <section style="max-width:420px;margin:0 auto;padding:96px 24px;text-align:center">
+    <span style="display:inline-block;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#b5601f;font-weight:700;margin-bottom:16px">Comunidad HK</span>
+    ${body}
     <p id="chk-otp-msg" style="font-size:13px;margin:16px 0 0;display:none"></p>
   </section>`;
 }
@@ -1791,15 +1833,72 @@ async function sendComunidadHkOtp(){
   const email = document.getElementById('chk-otp-email').value.trim();
   const msg = document.getElementById('chk-otp-msg');
   if (!email) return;
-  msg.style.display = 'block'; msg.style.color = '#767b82'; msg.textContent = 'Enviando...';
+  msg.style.display = 'block'; msg.style.color = '#767b82'; msg.textContent = 'Verificando...';
+  const { data: passwordSet, error: checkErr } = await supabaseClient.rpc('has_password_set', { check_email: email });
+  if (checkErr){
+    msg.style.color = '#c0392b'; msg.textContent = 'Ocurrió un error. Intenta de nuevo.';
+    return;
+  }
+  if (passwordSet === null){
+    msg.style.color = '#c0392b'; msg.textContent = 'Este correo no está registrado en la Comunidad HK.';
+    return;
+  }
+  comunidadHkOtpEmailInput = email;
+  if (passwordSet){
+    comunidadHkOtpStep = 'password-login';
+    document.getElementById('main').innerHTML = renderComunidadHKPage();
+    return;
+  }
+  msg.style.color = '#767b82'; msg.textContent = 'Enviando código...';
   const { error } = await supabaseClient.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
   if (error){
     msg.style.color = '#c0392b'; msg.textContent = 'No se pudo enviar el código: ' + error.message;
     return;
   }
-  comunidadHkOtpEmailInput = email;
   comunidadHkOtpStep = 'code';
   document.getElementById('main').innerHTML = renderComunidadHKPage();
+}
+
+async function signInComunidadHkPassword(){
+  const pw = document.getElementById('chk-login-password').value;
+  const msg = document.getElementById('chk-otp-msg');
+  if (!pw) return;
+  msg.style.display = 'block'; msg.style.color = '#767b82'; msg.textContent = 'Ingresando...';
+  const { error } = await supabaseClient.auth.signInWithPassword({ email: comunidadHkOtpEmailInput, password: pw });
+  if (error){
+    msg.style.color = '#c0392b';
+    msg.textContent = /email not confirmed/i.test(error.message)
+      ? 'Todavía no confirmas tu correo. Revisa tu bandeja de entrada (y spam).'
+      : 'Correo o contraseña incorrectos.';
+    return;
+  }
+  await continueComunidadHkLoginAfterAuth();
+}
+
+async function requestComunidadHkPasswordReset(){
+  const msg = document.getElementById('chk-otp-msg');
+  msg.style.display = 'block'; msg.style.color = '#767b82'; msg.textContent = 'Enviando link para recuperar tu contraseña...';
+  const { error } = await supabaseClient.auth.resetPasswordForEmail(comunidadHkOtpEmailInput);
+  if (error){
+    msg.style.color = '#c0392b'; msg.textContent = 'No se pudo enviar: ' + error.message;
+    return;
+  }
+  msg.style.color = '#767b82'; msg.textContent = 'Te enviamos un link para crear una nueva contraseña. Revisa tu correo (y spam).';
+}
+
+async function saveComunidadHkPasswordReset(){
+  const pw = document.getElementById('chk-reset-password').value;
+  const pw2 = document.getElementById('chk-reset-password-confirm').value;
+  const msg = document.getElementById('chk-otp-msg');
+  msg.style.display = 'block';
+  if (!pw || pw.length < 8){ msg.style.color = '#c0392b'; msg.textContent = 'La contraseña debe tener al menos 8 caracteres.'; return; }
+  if (pw !== pw2){ msg.style.color = '#c0392b'; msg.textContent = 'Las contraseñas no coinciden.'; return; }
+  msg.style.color = '#767b82'; msg.textContent = 'Guardando...';
+  const { error } = await supabaseClient.auth.updateUser({ password: pw });
+  if (error){ msg.style.color = '#c0392b'; msg.textContent = 'No se pudo actualizar: ' + error.message; return; }
+  await supabaseClient.rpc('mark_password_set');
+  comunidadHkOtpStep = 'email';
+  await continueComunidadHkLoginAfterAuth();
 }
 
 async function verifyComunidadHkOtp(){
@@ -4633,7 +4732,12 @@ supabaseClient.auth.onAuthStateChange(async (_event, _session) => {
   if (state.page === 'admin') renderAdminAsync();
   await refreshAdminHeroControl();
   if (state.page === 'detail' || state.page === 'community') renderMain();
-  if (_event === 'SIGNED_IN' && !isAdminSession && !comunidadHkVerifiedEmail && comunidadHkOtpStep !== 'password'){
+  if (_event === 'PASSWORD_RECOVERY'){
+    comunidadHkOtpStep = 'password-reset';
+    if (state.page !== 'comunidad-hk') goTo('comunidad-hk'); else renderMain();
+    return;
+  }
+  if (_event === 'SIGNED_IN' && !isAdminSession && !comunidadHkVerifiedEmail && comunidadHkOtpStep !== 'password' && comunidadHkOtpStep !== 'password-reset'){
     const handled = await continueComunidadHkLoginAfterAuth();
     if (handled && state.page !== 'comunidad-hk') goTo('comunidad-hk');
   }
