@@ -2050,7 +2050,7 @@ function renderComunidadHKTopbar(){
           <p style="margin:0;padding:14px 16px;font-size:13px;font-weight:700;color:#24262b;border-bottom:1px solid #f1ede5;position:sticky;top:0;background:#fff">Notificaciones</p>
           ${comunidadHkNotifications.length === 0
             ? `<p style="padding:16px;font-size:13px;color:#9a958a;margin:0">Todavía no tienes notificaciones.</p>`
-            : comunidadHkNotifications.slice(0, 8).map(n => `<div style="padding:12px 16px;border-bottom:1px solid #f1ede5"><p style="margin:0;font-size:13px;color:#3f4247">${esc(n.payload || '')}</p><p style="margin:4px 0 0;font-size:11px;color:#9a958a">${formatRelativeTime(n.created_at)}</p></div>`).join('')}
+            : comunidadHkNotifications.slice(0, 8).map(n => `<div onclick="goToNotificationTarget('${n.type}')" style="padding:12px 16px;border-bottom:1px solid #f1ede5;cursor:pointer"><p style="margin:0;font-size:13px;color:#3f4247">${esc(n.payload || '')}</p><p style="margin:4px 0 0;font-size:11px;color:#9a958a">${formatRelativeTime(n.created_at)}</p></div>`).join('')}
         </div>
       </span>
       <span onclick="setComunidadHKTab('mensajes')" style="cursor:pointer;font-size:17px;position:relative" title="Mensajes">💬
@@ -2339,6 +2339,25 @@ async function markAllNotificationsRead(){
   await supabaseClient.from('notifications').update({ read: true }).eq('recipient_id', comunidadHkMemberId).eq('read', false);
 }
 
+const NOTIFICATION_TYPE_TARGETS = {
+  connection_request: 'conexiones',
+  connection_accepted: 'conexiones',
+  connection_post: 'feed',
+  like: 'feed',
+  comment: 'feed',
+  group_invite: 'grupos',
+  group_join_request: 'grupos',
+  event_rsvp_accepted: 'eventos',
+  event_reminder: 'eventos',
+  profile_view: 'perfil',
+};
+
+function goToNotificationTarget(type){
+  closeComunidadHKDropdowns();
+  const tab = NOTIFICATION_TYPE_TARGETS[type] || 'notificaciones';
+  setComunidadHKTab(tab);
+}
+
 function renderComunidadHKNotifications(){
   return `
   <h1 style="font-family:'Newsreader',serif;font-size:24px;color:#24262b;margin:0 0 6px;font-weight:500">Notificaciones</h1>
@@ -2346,7 +2365,7 @@ function renderComunidadHKNotifications(){
   ${comunidadHkNotifications.length === 0 ? `<p style="color:#9a958a;font-size:14px">Todavía no tienes notificaciones.</p>` : `
     <div style="background:#fff;border:1px solid #ece7dd;border-radius:8px;overflow:hidden">
       ${comunidadHkNotifications.map(n => `
-        <div style="padding:16px 20px;border-bottom:1px solid #f1ede5">
+        <div onclick="goToNotificationTarget('${n.type}')" style="padding:16px 20px;border-bottom:1px solid #f1ede5;cursor:pointer">
           <p style="margin:0;font-size:14px;color:#24262b">${esc(n.payload || '')}</p>
           <p style="margin:4px 0 0;font-size:12px;color:#9a958a">${formatRelativeTime(n.created_at)}</p>
         </div>`).join('')}
